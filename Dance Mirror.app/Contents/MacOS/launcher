@@ -1,0 +1,8 @@
+#!/bin/bash
+cd "$(dirname "$0")/../../../"
+mkdir -p videos
+python3 -c "import flask" 2>/dev/null || pip3 install flask flask-cors yt-dlp --break-system-packages 2>/dev/null || pip3 install flask flask-cors yt-dlp --user 2>/dev/null
+python3 server/server.py &
+sleep 2
+open http://127.0.0.1:5000
+wait
