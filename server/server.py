@@ -28,7 +28,7 @@ def _download(url):
 
     def _try_dl(extra_opts=None):
         opts = {
-            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+            'format': 'best[ext=mp4]/best',
             'outtmpl': os.path.join(VIDEOS_DIR, '%(title)s.%(ext)s'),
             'merge_output_format': 'mp4',
             'noplaylist': True,
