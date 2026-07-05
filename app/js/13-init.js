@@ -5,6 +5,7 @@ renderLibrary();
 var cameraBtn = document.getElementById('cameraBtn');
 if (cameraBtn) cameraBtn.addEventListener('click', function() { window.open('camera.html', '_blank'); });
 
-// Quit button
-var quitBtn = document.getElementById('quitBtn');
-if (quitBtn) quitBtn.addEventListener('click', function() { fetch('/api/quit', { method: 'POST' }); window.close(); });
+// Shut down server when tab/window closes
+window.addEventListener('beforeunload', function() {
+    fetch('/api/quit', { method: 'POST', keepalive: true });
+});
