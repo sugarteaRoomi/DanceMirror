@@ -129,5 +129,13 @@ def _idle_check():
 
 if __name__ == '__main__':
     threading.Thread(target=_idle_check, daemon=True).start()
-    webbrowser.open('http://127.0.0.1:5000')
-    app.run(host='127.0.0.1', port=5000, debug=False)
+    threading.Thread(target=lambda: app.run(host='127.0.0.1', port=5000, debug=False), daemon=True).start()
+    time.sleep(1)
+    try:
+        import webview
+        webview.create_window('Dance Mirror', 'http://127.0.0.1:5000', width=1280, height=860, min_size=(900, 600))
+        webview.start()
+    except ImportError:
+        webbrowser.open('http://127.0.0.1:5000')
+        app.run(host='127.0.0.1', port=5000, debug=False)
+    os.kill(os.getpid(), signal.SIGTERM)
