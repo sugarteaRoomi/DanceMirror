@@ -16,6 +16,8 @@ app = Flask(__name__, static_folder=APP_DIR, static_url_path='')
 CORS(app)
 
 _jobs = {}
+_last_ping = time.time()
+_idle_timeout = 300  # 5 minutes
 
 @app.route('/')
 def index():
@@ -108,11 +110,24 @@ def serve_video(filename):
         os.remove(path); return jsonify({'deleted': filename})
     return send_file(path, mimetype='video/mp4')
 
+@app.route('/api/ping')
+def ping():
+    global _last_ping
+    _last_ping = time.time()
+    return jsonify({'ok': True})
+
 @app.route('/api/quit', methods=['POST'])
 def quit_server():
     os.kill(os.getpid(), signal.SIGTERM)
     return jsonify({'status': 'shutting down'})
 
+def _idle_check():
+    while True:
+        time.sleep(30)
+        if time.time() - _last_ping > _idle_timeout:
+            os.kill(os.getpid(), signal.SIGTERM)
+
 if __name__ == '__main__':
+    threading.Thread(target=_idle_check, daemon=True).start()
     webbrowser.open('http://127.0.0.1:5000')
     app.run(host='127.0.0.1', port=5000, debug=False)
