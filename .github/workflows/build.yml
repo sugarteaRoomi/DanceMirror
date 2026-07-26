@@ -1,0 +1,45 @@
+name: Build
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: DanceMirror.exe
+            archive: DanceMirror-windows.zip
+          - os: macos-latest
+            artifact: DanceMirror.app
+            archive: DanceMirror-macos.zip
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install pyinstaller pywebview flask flask-cors yt-dlp
+
+      - name: Build
+        run: pyinstaller build.spec
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        run: Compress-Archive -Path dist\DanceMirror\* -DestinationPath ${{ matrix.archive }}
+
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        run: cd dist && zip -r ../${{ matrix.archive }} DanceMirror.app
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.archive }}
