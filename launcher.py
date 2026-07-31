@@ -110,6 +110,55 @@ def serve_video(filename):
         os.remove(path); return jsonify({'deleted': filename})
     return send_file(path, mimetype='video/mp4')
 
+@app.route('/api/export', methods=['POST'])
+def export_video():
+    data = request.json
+    video_name = data.get('video', '')
+    audio_name = data.get('audio', '')
+    offset = float(data.get('offset', 0))
+    video_vol = float(data.get('videoVol', 1))
+    audio_vol = float(data.get('audioVol', 1))
+
+    video_path = os.path.join(VIDEOS_DIR, video_name)
+    audio_path = os.path.join(VIDEOS_DIR, audio_name)
+
+    if not os.path.exists(video_path):
+        return jsonify({'error': 'Video not found: ' + video_name}), 404
+    if not os.path.exists(audio_path):
+        return jsonify({'error': 'Audio not found: ' + audio_name}), 404
+
+    out_name = 'mixed_' + os.path.splitext(video_name)[0] + '.mp4'
+    out_path = os.path.join(VIDEOS_DIR, out_name)
+
+    if offset >= 0:
+        afilter = '[0:a]volume={:.2f}[vA];[1:a]adelay={:.0f}|{:.0f},volume={:.2f}[aA];[vA][aA]amix=inputs=2:duration=longest'.format(
+            video_vol, offset*1000, offset*1000, audio_vol)
+    else:
+        abs_off = int(abs(offset) * 1000)
+        afilter = '[0:a]adelay={:.0f}|{:.0f},volume={:.2f}[vA];[1:a]volume={:.2f}[aA];[vA][aA]amix=inputs=2:duration=longest'.format(
+            abs_off, abs_off, video_vol, audio_vol)
+
+    try:
+        subprocess.run([
+            'ffmpeg', '-y',
+            '-i', video_path,
+            '-i', audio_path,
+            '-filter_complex', afilter,
+            '-c:v', 'copy',
+            '-map', '0:v:0',
+            out_path
+        ], check=True, capture_output=True, text=True)
+        return jsonify({'filename': out_name})
+    except subprocess.CalledProcessError as e:
+        return jsonify({'error': 'ffmpeg error: ' + e.stderr[-200:]}), 500
+
+@app.route('/api/export/<filename>', methods=['GET'])
+def download_export(filename):
+    path = os.path.join(VIDEOS_DIR, filename)
+    if not os.path.exists(path):
+        return jsonify({'error': 'Not found'}), 404
+    return send_file(path, mimetype='video/mp4', as_attachment=True, download_name=filename)
+
 @app.route('/api/ping')
 def ping():
     global _last_ping

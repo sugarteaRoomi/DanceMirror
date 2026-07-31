@@ -11,6 +11,7 @@ async function renderLibrary() {
     if (!files.length) {
         videoList.innerHTML = '<div class="empty-state"><p>No videos yet. Upload from your computer or paste a YouTube link above.</p></div>';
         compareBtn.style.display = 'none';
+        overlayBtn.style.display = 'none';
         return;
     }
 
@@ -44,6 +45,7 @@ async function renderLibrary() {
         });
     });
     compareBtn.style.display = '';
+    overlayBtn.style.display = '';
 }
 
 function loadVideoFromLibrary(filename) {
@@ -111,14 +113,31 @@ addVideoBtn.addEventListener('click', function() { videoFileInput.click(); });
 videoFileInput.addEventListener('change', async function() {
     var files = videoFileInput.files;
     if (!files.length) return;
+    var uploaded = 0;
     for (var i = 0; i < files.length; i++) {
         uploadProgress.style.display = 'inline';
+        var sizeMB = files[i].size / 1048576;
+        if (sizeMB > 95) {
+            uploadProgress.textContent = 'File too large (' + sizeMB.toFixed(0) + ' MB). Limit is 95 MB. Use the desktop app for larger files.';
+            setTimeout(function() { uploadProgress.style.display = 'none'; }, 5000);
+            continue;
+        }
         uploadProgress.textContent = 'Uploading ' + files[i].name + '... 0%';
-        await uploadFile(files[i]);
+        try {
+            await uploadFile(files[i]);
+            uploaded++;
+        } catch(e) {
+            uploadProgress.textContent = 'Upload failed: ' + e.message;
+            setTimeout(function() { uploadProgress.style.display = 'none'; }, 3000);
+            return;
+        }
     }
-    uploadProgress.style.display = 'none';
-    videoFileInput.value = '';
-    renderLibrary();
+    if (uploaded > 0) {
+        uploadProgress.textContent = 'Done!';
+        setTimeout(function() { uploadProgress.style.display = 'none'; }, 1500);
+        videoFileInput.value = '';
+        renderLibrary();
+    }
 });
 
 function uploadFile(file) {
@@ -132,10 +151,12 @@ function uploadFile(file) {
         });
         xhr.addEventListener('load', function() {
             if (xhr.status >= 200 && xhr.status < 300) resolve();
-            else reject(new Error('Upload failed'));
+            else reject(new Error('HTTP ' + xhr.status + ': ' + (xhr.responseText || 'Upload failed').substring(0, 100)));
         });
         xhr.addEventListener('error', function() { reject(new Error('Upload failed')); });
+        xhr.addEventListener('timeout', function() { reject(new Error('Upload timed out')); });
         xhr.open('POST', '/api/upload');
+        xhr.timeout = 300000; // 5 min timeout for large files
         var form = new FormData();
         form.append('file', file);
         xhr.send(form);
