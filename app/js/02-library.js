@@ -11,7 +11,6 @@ async function renderLibrary() {
     if (!files.length) {
         videoList.innerHTML = '<div class="empty-state"><p>No videos yet. Upload from your computer or paste a YouTube link above.</p></div>';
         compareBtn.style.display = 'none';
-        overlayBtn.style.display = 'none';
         return;
     }
 
@@ -45,7 +44,6 @@ async function renderLibrary() {
         });
     });
     compareBtn.style.display = '';
-    overlayBtn.style.display = '';
 }
 
 function loadVideoFromLibrary(filename) {
