@@ -1,5 +1,6 @@
 // ============================================================
 // Create Mix — combine dance cover video with external audio
+// Uses a second <audio> element synced by time, like Compare mode
 // ============================================================
 var createMixBtn = document.getElementById('createMixBtn');
 var mixPanel = document.getElementById('mixPanel');
@@ -23,17 +24,15 @@ var mixAutoSyncBtn = document.getElementById('mixAutoSyncBtn');
 var mixSyncStatus = document.getElementById('mixSyncStatus');
 var mixExportBtn = document.getElementById('mixExportBtn');
 var mixExportProgress = document.getElementById('mixExportProgress');
+var mixAudioEl = document.getElementById('mixAudioEl');
 
 var mixVideoName = null;
-var mixVideoBlob = null;
-var mixAudioBuffer = null;
 var mixAudioName = null;
+var mixAudioObjectURL = null;
 var mixOffset = 0;
 var mixVideoVolume = 1;
 var mixAudioVolume = 1;
-var _mixCtx = null;
-var _mixSourceNode = null;
-var _mixGain = null;
+var _picking = null;
 
 // --- Open/Close ---
 createMixBtn.addEventListener('click', function() {
@@ -43,13 +42,14 @@ createMixBtn.addEventListener('click', function() {
 mixCloseBtn.addEventListener('click', closeMixPanel);
 
 function closeMixPanel() {
-    stopMixSource();
-    if (getActiveVideo()) getActiveVideo().volume = 1;
+    syncPause();
+    if (mixAudioObjectURL) { URL.revokeObjectURL(mixAudioObjectURL); mixAudioObjectURL = null; }
+    mixAudioEl.removeAttribute('src');
+    mixAudioEl.load();
+    getActiveVideo().volume = 1;
     mixPanel.style.display = 'none';
     createMixBtn.style.display = '';
     mixVideoName = null;
-    mixVideoBlob = null;
-    mixAudioBuffer = null;
     mixAudioName = null;
     mixOffset = 0;
     mixVideoVolume = 1;
@@ -64,8 +64,7 @@ function closeMixPanel() {
     _picking = null;
 }
 
-// --- Picking state: null, 'video', or 'audio' ---
-var _picking = null;
+// --- Picking state ---
 function startPicking(type) {
     if (_picking === type) { stopPicking(); return; }
     _picking = type;
@@ -98,88 +97,89 @@ videoList.addEventListener('click', function(e) {
         loadMixAudioFromLibrary(name);
         stopPicking();
     }
-    // If not picking, block the click so video doesn't change
 }, true);
 
+// --- Video source ---
 function setMixVideo(name) {
     mixVideoName = name;
-    mixVideoBlob = null;
     mixVideoLabel.textContent = name;
     loadVideoFromLibrary(name);
     tryShowMixControls();
 }
 
-function tryShowMixControls() {
-    if (mixVideoName && mixAudioBuffer) {
-        var v = getActiveVideo();
-        if (!v.duration || isNaN(v.duration)) {
-            v.addEventListener('loadedmetadata', function() {
-                mixControls.style.display = 'block';
-                updateMixOffsetRange();
-                ensureMixCtx();
-            }, { once: true });
-        } else {
-            mixControls.style.display = 'block';
-            updateMixOffsetRange();
-            ensureMixCtx();
-        }
-    }
-}
-
-function updateMixOffsetRange() {
-    var durV = getActiveVideo().duration || 0;
-    var durA = mixAudioBuffer ? mixAudioBuffer.duration : 0;
-    mixOffsetSlider.min = -Math.round(durA);
-    mixOffsetSlider.max = Math.round(durV);
-    mixOffsetSlider.value = mixOffset;
-    mixOffsetVal.textContent = mixOffset.toFixed(2) + 's';
-}
-
-// --- Upload buttons ---
 mixVideoUploadBtn.addEventListener('click', function() { mixVideoFile.click(); });
-mixAudioUploadBtn.addEventListener('click', function() { mixAudioFile.click(); });
-
 mixVideoFile.addEventListener('change', async function() {
     var f = mixVideoFile.files[0];
     if (!f) return;
     mixVideoFile.value = '';
-    // Upload the file to the server
+    mixVideoLabel.textContent = 'Uploading...';
     var form = new FormData();
     form.append('file', f);
-    mixVideoLabel.textContent = 'Uploading...';
     var resp = await fetch('/api/upload', { method: 'POST', body: form });
     var data = await resp.json();
+    if (data.error) { mixVideoLabel.textContent = 'Upload failed'; return; }
     mixVideoName = data.filename;
-    mixVideoBlob = null;
     mixVideoLabel.textContent = data.filename;
     loadVideoFromLibrary(data.filename);
     renderLibrary();
     tryShowMixControls();
 });
 
+// --- Audio source ---
+mixAudioUploadBtn.addEventListener('click', function() { mixAudioFile.click(); });
 mixAudioFile.addEventListener('change', async function() {
     var f = mixAudioFile.files[0];
     if (!f) return;
     mixAudioFile.value = '';
     mixAudioLabel.textContent = 'Loading...';
-    _mixCtx = _mixCtx || new (window.AudioContext || window.webkitAudioContext)();
-    var buf = await f.arrayBuffer();
-    mixAudioBuffer = await _mixCtx.decodeAudioData(buf);
-    mixAudioName = f.name;
-    mixAudioLabel.textContent = f.name;
+    // Upload to server so export works
+    var form = new FormData();
+    form.append('file', f);
+    var resp = await fetch('/api/upload', { method: 'POST', body: form });
+    var data = await resp.json();
+    if (data.error) { mixAudioLabel.textContent = 'Upload failed'; return; }
+    // Use blob URL for instant playback
+    if (mixAudioObjectURL) URL.revokeObjectURL(mixAudioObjectURL);
+    mixAudioObjectURL = URL.createObjectURL(f);
+    mixAudioEl.src = mixAudioObjectURL;
+    mixAudioName = data.filename;
+    mixAudioLabel.textContent = data.filename;
     tryShowMixControls();
 });
 
 async function loadMixAudioFromLibrary(name) {
-    mixAudioLabel.textContent = 'Extracting audio...';
-    _mixCtx = _mixCtx || new (window.AudioContext || window.webkitAudioContext)();
-    var resp = await fetch('/api/video/' + encodeURIComponent(name));
-    var buf = await resp.arrayBuffer();
-    mixAudioBuffer = await _mixCtx.decodeAudioData(buf);
+    mixAudioLabel.textContent = 'Loading audio...';
+    mixAudioEl.src = '/api/video/' + encodeURIComponent(name);
     mixAudioName = name;
     mixAudioLabel.textContent = name;
     tryShowMixControls();
 }
+
+function tryShowMixControls() {
+    if (mixVideoName && mixAudioName) {
+        var v = getActiveVideo();
+        if (!v.duration || isNaN(v.duration)) {
+            v.addEventListener('loadedmetadata', function() {
+                mixControls.style.display = 'block';
+                updateMixOffsetRange();
+            }, { once: true });
+        } else {
+            mixControls.style.display = 'block';
+            updateMixOffsetRange();
+        }
+    }
+}
+
+function updateMixOffsetRange() {
+    var durV = getActiveVideo().duration || 0;
+    var durA = mixAudioEl.duration || 0;
+    if (isNaN(durA) || !isFinite(durA)) durA = 0;
+    mixOffsetSlider.min = -Math.round(durA);
+    mixOffsetSlider.max = Math.round(durV);
+    mixOffsetSlider.value = mixOffset;
+    mixOffsetVal.textContent = mixOffset.toFixed(2) + 's';
+}
+mixAudioEl.addEventListener('loadedmetadata', function() { updateMixOffsetRange(); });
 
 // --- Volume & offset ---
 mixVideoVol.addEventListener('input', function() {
@@ -190,7 +190,7 @@ mixVideoVol.addEventListener('input', function() {
 mixAudioVol.addEventListener('input', function() {
     mixAudioVolume = parseFloat(this.value);
     mixAudioVolVal.textContent = Math.round(mixAudioVolume * 100) + '%';
-    if (_mixGain) _mixGain.gain.value = mixAudioVolume;
+    mixAudioEl.volume = mixAudioVolume;
 });
 mixOffsetSlider.addEventListener('input', function() {
     mixOffset = parseFloat(this.value);
@@ -208,72 +208,102 @@ document.getElementById('mixOffsetRightBtn').addEventListener('click', function(
 document.getElementById('mixOffsetFineLeftBtn').addEventListener('click', function() { nudgeMixOffset(-1/30); });
 document.getElementById('mixOffsetFineRightBtn').addEventListener('click', function() { nudgeMixOffset(1/30); });
 
-// --- Web Audio ---
-function ensureMixCtx() {
-    _mixCtx = _mixCtx || new (window.AudioContext || window.webkitAudioContext)();
-    if (!_mixGain) {
-        _mixGain = _mixCtx.createGain();
-        _mixGain.connect(_mixCtx.destination);
-    }
-    _mixGain.gain.value = mixAudioVolume;
-}
-
-function stopMixSource() {
-    if (_mixSourceNode) { try { _mixSourceNode.stop(); } catch(e) {}; _mixSourceNode = null; }
-}
-
-function startMixAudio() {
-    if (!mixAudioBuffer) return;
-    ensureMixCtx();
-    stopMixSource();
-    if (_mixCtx.state === 'suspended') _mixCtx.resume();
-
+// --- Sync playback (mirror of Compare mode) ---
+function syncPlay() {
+    if (!mixVideoName || !mixAudioName) return;
     var v = getActiveVideo();
     v.volume = mixVideoVolume;
-    var audioStart = v.currentTime + mixOffset;
-    _mixSourceNode = _mixCtx.createBufferSource();
-    _mixSourceNode.buffer = mixAudioBuffer;
-    _mixSourceNode.connect(_mixGain);
-
-    var t = _mixCtx.currentTime + 0.01;
-    if (audioStart <= 0) {
-        _mixSourceNode.start(t, Math.max(0, -audioStart));
-    } else if (audioStart < mixAudioBuffer.duration) {
-        _mixSourceNode.start(t, audioStart);
+    mixAudioEl.volume = mixAudioVolume;
+    var bt = v.currentTime + mixOffset;
+    if (bt >= 0 && bt <= (mixAudioEl.duration || Infinity)) {
+        v.play();
+        mixAudioEl.currentTime = bt;
+        mixAudioEl.play();
+    } else if (bt < 0) {
+        // Audio starts before video — start audio partway through
+        v.play();
+        mixAudioEl.currentTime = 0;
+        mixAudioEl.play();
+    } else {
+        v.play();
     }
 }
 
-// Hook into player events while mix controls are visible
+function syncPause() {
+    getActiveVideo().pause();
+    mixAudioEl.pause();
+}
+
+// Hook into player events for sync (mirror of Compare mode)
 videoPlayer.addEventListener('play', function() {
-    if (mixControls.style.display === 'block') startMixAudio();
+    if (mixControls.style.display === 'block' && mixAudioName) {
+        var v = getActiveVideo();
+        var bt = v.currentTime + mixOffset;
+        if (bt >= 0 && bt <= (mixAudioEl.duration || Infinity)) {
+            mixAudioEl.currentTime = bt;
+            mixAudioEl.play();
+        } else if (bt < 0) {
+            mixAudioEl.currentTime = 0;
+            mixAudioEl.play();
+        }
+    }
 });
 videoPlayer.addEventListener('pause', function() {
-    if (mixControls.style.display === 'block') stopMixSource();
+    if (mixControls.style.display === 'block') mixAudioEl.pause();
 });
 videoPlayer.addEventListener('seeked', function() {
-    if (mixControls.style.display === 'block' && !getActiveVideo().paused) startMixAudio();
+    if (mixControls.style.display === 'block' && mixAudioName && !getActiveVideo().paused) {
+        var v = getActiveVideo();
+        var bt = v.currentTime + mixOffset;
+        if (bt >= 0 && bt <= (mixAudioEl.duration || Infinity)) {
+            mixAudioEl.currentTime = bt;
+        } else if (bt < 0) {
+            mixAudioEl.currentTime = 0;
+        }
+    }
+});
+cutVideo.addEventListener('play', function() {
+    if (mixControls.style.display === 'block' && mixAudioName) {
+        var v = getActiveVideo();
+        var bt = v.currentTime + mixOffset;
+        if (bt >= 0 && bt <= (mixAudioEl.duration || Infinity)) {
+            mixAudioEl.currentTime = bt;
+            mixAudioEl.play();
+        }
+    }
+});
+cutVideo.addEventListener('pause', function() {
+    if (mixControls.style.display === 'block') mixAudioEl.pause();
 });
 
-// --- Auto-sync ---
-mixAutoSyncBtn.addEventListener('click', async function() {
-    if (!mixAudioBuffer || !mixVideoName) return;
+// Loop back to start on end
+videoPlayer.addEventListener('ended', function() {
+    if (mixControls.style.display !== 'block' || !isLooping) return;
     var v = getActiveVideo();
-    if (!v.duration || isNaN(v.duration)) {
-        mixSyncStatus.textContent = 'Wait for video to load first.';
-        return;
-    }
-    v.pause();
-    stopMixSource();
+    v.currentTime = 0;
+    mixAudioEl.currentTime = Math.max(0, Math.min(mixOffset, mixAudioEl.duration || Infinity));
+    v.play();
+});
+
+// --- Auto-sync (same algorithm as Compare mode) ---
+mixAutoSyncBtn.addEventListener('click', async function() {
+    if (!mixAudioName || !mixVideoName) return;
+    var v = getActiveVideo();
+    if (!v.duration || isNaN(v.duration)) { mixSyncStatus.textContent = 'Wait for video to load first.'; return; }
+    syncPause();
     mixSyncStatus.textContent = 'Analyzing...';
     mixAutoSyncBtn.disabled = true;
 
     try {
         var durV = v.duration;
-        var vidSrc = mixVideoBlob || '/api/video/' + encodeURIComponent(mixVideoName);
+        var vidSrc = '/api/video/' + encodeURIComponent(mixVideoName);
         var roughV = await extractWaveform(vidSrc, durV, 200, 5);
         if (!roughV) throw new Error('Could not read video audio');
 
-        var roughA = extractWaveformFromBuffer(mixAudioBuffer, 200, 5);
+        var audioSrc = mixAudioObjectURL || '/api/video/' + encodeURIComponent(mixAudioName);
+        var roughA = await extractWaveform(audioSrc, durV + Math.abs(mixOffset) + 60, 200, 5);
+        if (!roughA) throw new Error('Could not read audio track');
+
         var onsetV = trimLeadingSilence(roughV);
         var onsetA = trimLeadingSilence(roughA);
 
@@ -283,7 +313,7 @@ mixAutoSyncBtn.addEventListener('click', async function() {
 
         mixSyncStatus.textContent = 'Fine-tuning...';
         var fineV = await extractWaveform(vidSrc, durV, 1000, 2);
-        var fineA = extractWaveformFromBuffer(mixAudioBuffer, 1000, 2);
+        var fineA = await extractWaveform(audioSrc, durV + Math.abs(mixOffset) + 60, 1000, 2);
         trimLeadingSilenceAt(fineV, onsetV);
         trimLeadingSilenceAt(fineA, onsetA);
         var onsetCorrection = onsetA - onsetV;
@@ -296,7 +326,7 @@ mixAutoSyncBtn.addEventListener('click', async function() {
         // Seek to start and play
         v.currentTime = 0;
         var _played = false;
-        function _seekAndPlay() { if (_played) return; _played = true; v.play(); }
+        function _seekAndPlay() { if (_played) return; _played = true; syncPlay(); }
         v.addEventListener('seeked', _seekAndPlay, { once: true });
         setTimeout(_seekAndPlay, 300);
     } catch(e) {
@@ -304,31 +334,6 @@ mixAutoSyncBtn.addEventListener('click', async function() {
     }
     mixAutoSyncBtn.disabled = false;
 });
-
-function extractWaveformFromBuffer(audioBuffer, targetRate, envelopeMs) {
-    var raw = audioBuffer.getChannelData(0);
-    var origRate = audioBuffer.sampleRate;
-    var windowLen = Math.floor(origRate * envelopeMs / 1000);
-    var hopLen = Math.floor(origRate / targetRate);
-    var len = Math.floor(raw.length / hopLen);
-    var samples = new Float32Array(len);
-    for (var i = 0; i < len; i++) {
-        var center = i * hopLen;
-        var start = Math.max(0, center - Math.floor(windowLen / 2));
-        var end = Math.min(raw.length, start + windowLen);
-        var sumSq = 0;
-        for (var j = start; j < end; j++) sumSq += raw[j] * raw[j];
-        samples[i] = Math.sqrt(sumSq / (end - start));
-    }
-    var sum = 0;
-    for (var i = 0; i < samples.length; i++) sum += samples[i];
-    var mean = sum / samples.length;
-    for (var i = 0; i < samples.length; i++) samples[i] -= mean;
-    var maxAbs = 0;
-    for (var i = 0; i < samples.length; i++) { if (Math.abs(samples[i]) > maxAbs) maxAbs = samples[i]; }
-    if (maxAbs > 0) for (var i = 0; i < samples.length; i++) samples[i] /= maxAbs;
-    return { data: samples, sampleRate: targetRate };
-}
 
 // --- Export ---
 mixExportBtn.addEventListener('click', async function() {
@@ -364,9 +369,4 @@ mixExportBtn.addEventListener('click', async function() {
         mixExportProgress.textContent = 'Export failed: ' + e.message;
     }
     mixExportBtn.disabled = false;
-});
-
-// Clean up on player change
-videoPlayer.addEventListener('loadedmetadata', function() {
-    // If mix panel is closed, nothing to do
 });
