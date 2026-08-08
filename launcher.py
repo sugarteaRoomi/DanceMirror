@@ -130,13 +130,17 @@ def export_video():
     out_name = 'mixed_' + os.path.splitext(video_name)[0] + '.mp4'
     out_path = os.path.join(VIDEOS_DIR, out_name)
 
+    # Frontend convention: positive offset = audio content is BEHIND video
+    #   offset > 0 (audio behind): delay the VIDEO so audio catches up
+    #   offset < 0 (audio ahead):  delay the AUDIO
     if offset >= 0:
-        afilter = '[0:a]volume={:.2f}[vA];[1:a]adelay={:.0f}|{:.0f},volume={:.2f}[aA];[vA][aA]amix=inputs=2:duration=longest'.format(
-            video_vol, offset*1000, offset*1000, audio_vol)
-    else:
         abs_off = int(abs(offset) * 1000)
         afilter = '[0:a]adelay={:.0f}|{:.0f},volume={:.2f}[vA];[1:a]volume={:.2f}[aA];[vA][aA]amix=inputs=2:duration=longest'.format(
             abs_off, abs_off, video_vol, audio_vol)
+    else:
+        abs_off = int(abs(offset) * 1000)
+        afilter = '[0:a]volume={:.2f}[vA];[1:a]adelay={:.0f}|{:.0f},volume={:.2f}[aA];[vA][aA]amix=inputs=2:duration=longest'.format(
+            video_vol, abs_off, abs_off, audio_vol)
 
     try:
         subprocess.run([
