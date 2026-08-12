@@ -209,29 +209,49 @@ document.getElementById('mixOffsetFineLeftBtn').addEventListener('click', functi
 document.getElementById('mixOffsetFineRightBtn').addEventListener('click', function() { nudgeMixOffset(1/30); });
 
 // --- Sync playback (mirror of Compare mode) ---
-function syncPlay() {
+function syncMixPlayPause() {
     if (!mixVideoName || !mixAudioName) return;
     var v = getActiveVideo();
-    v.volume = mixVideoVolume;
-    mixAudioEl.volume = mixAudioVolume;
-    var bt = v.currentTime + mixOffset;
-    if (bt >= 0 && bt <= (mixAudioEl.duration || Infinity)) {
-        v.play();
-        mixAudioEl.currentTime = bt;
-        mixAudioEl.play();
-    } else if (bt < 0) {
-        // Audio starts before video — start audio partway through
-        v.play();
-        mixAudioEl.currentTime = 0;
-        mixAudioEl.play();
+    if (v.paused) {
+        v.volume = mixVideoVolume;
+        mixAudioEl.volume = mixAudioVolume;
+        var bt = v.currentTime + mixOffset;
+        if (bt >= 0 && bt <= (mixAudioEl.duration || Infinity)) {
+            // Position audio first, then start both so startup is tight
+            mixAudioEl.currentTime = bt;
+            mixAudioEl.play();
+            v.play();
+        } else if (bt < 0) {
+            mixAudioEl.currentTime = 0;
+            mixAudioEl.play();
+            v.play();
+        } else {
+            v.play();
+        }
+        startMixSyncLoop();
     } else {
-        v.play();
+        v.pause();
+        mixAudioEl.pause();
+        _mixSyncLoop = false;
     }
 }
 
-function syncPause() {
-    getActiveVideo().pause();
-    mixAudioEl.pause();
+// Drift-correction loop — keeps audio element locked to video position
+var _mixSyncLoop = false;
+function startMixSyncLoop() {
+    if (_mixSyncLoop) return;
+    _mixSyncLoop = true;
+    var v = getActiveVideo();
+    function tick() {
+        if (!_mixSyncLoop || mixControls.style.display !== 'block' || v.paused) { _mixSyncLoop = false; return; }
+        var bt = v.currentTime + mixOffset;
+        var cur = mixAudioEl.currentTime;
+        if (Math.abs(cur - bt) > 0.06 && !mixAudioEl.paused) {
+            mixAudioEl.currentTime = bt;
+        }
+        requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
 }
 
 // Hook into player events for sync (mirror of Compare mode)
@@ -246,6 +266,7 @@ videoPlayer.addEventListener('play', function() {
             mixAudioEl.currentTime = 0;
             mixAudioEl.play();
         }
+        startMixSyncLoop();
     }
 });
 videoPlayer.addEventListener('pause', function() {
@@ -326,7 +347,7 @@ mixAutoSyncBtn.addEventListener('click', async function() {
         // Seek to start and play
         v.currentTime = 0;
         var _played = false;
-        function _seekAndPlay() { if (_played) return; _played = true; syncPlay(); }
+        function _seekAndPlay() { if (_played) return; _played = true; syncMixPlayPause(); }
         v.addEventListener('seeked', _seekAndPlay, { once: true });
         setTimeout(_seekAndPlay, 300);
     } catch(e) {

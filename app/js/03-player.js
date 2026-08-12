@@ -60,6 +60,7 @@ cutVideo.addEventListener('loadedmetadata', updatePlayPauseBtn);
 
 playPauseBtn.addEventListener('click', function() {
     if (isCompareMode && videoBLoaded) { syncPlayPause(); return; }
+    if (typeof syncMixPlayPause === 'function' && mixControls && mixControls.style.display === 'block') { syncMixPlayPause(); return; }
     var v = getActiveVideo();
     if (v.paused) v.play(); else v.pause();
 });
