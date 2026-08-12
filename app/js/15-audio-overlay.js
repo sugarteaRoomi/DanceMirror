@@ -1,6 +1,7 @@
 // ============================================================
 // Create Mix — combine dance cover video with external audio
-// Uses a second <audio> element synced by time, like Compare mode
+// Overlay audio plays via Web Audio BufferSource (sample-accurate)
+// Video volume via video.volume. No MediaElementSource needed.
 // ============================================================
 var createMixBtn = document.getElementById('createMixBtn');
 var mixPanel = document.getElementById('mixPanel');
@@ -24,15 +25,19 @@ var mixAutoSyncBtn = document.getElementById('mixAutoSyncBtn');
 var mixSyncStatus = document.getElementById('mixSyncStatus');
 var mixExportBtn = document.getElementById('mixExportBtn');
 var mixExportProgress = document.getElementById('mixExportProgress');
-var mixAudioEl = document.getElementById('mixAudioEl');
 
 var mixVideoName = null;
 var mixAudioName = null;
-var mixAudioObjectURL = null;
+var mixAudioBuffer = null;
 var mixOffset = 0;
 var mixVideoVolume = 1;
 var mixAudioVolume = 1;
 var _picking = null;
+
+var _mixCtx = null;
+var _mixGain = null;
+var _mixSource = null;
+var _mixStarting = false;
 
 // --- Open/Close ---
 createMixBtn.addEventListener('click', function() {
@@ -43,15 +48,14 @@ mixCloseBtn.addEventListener('click', closeMixPanel);
 
 function closeMixPanel() {
     getActiveVideo().pause();
-    mixAudioEl.pause();
-    if (mixAudioObjectURL) { URL.revokeObjectURL(mixAudioObjectURL); mixAudioObjectURL = null; }
-    mixAudioEl.removeAttribute('src');
-    mixAudioEl.load();
+    stopMixSource();
+    if (_mixCtx) { _mixCtx.close(); _mixCtx = null; _mixGain = null; }
     getActiveVideo().volume = 1;
     mixPanel.style.display = 'none';
     createMixBtn.style.display = '';
     mixVideoName = null;
     mixAudioName = null;
+    mixAudioBuffer = null;
     mixOffset = 0;
     mixVideoVolume = 1;
     mixAudioVolume = 1;
@@ -81,7 +85,6 @@ function stopPicking() {
 mixVideoLibraryBtn.addEventListener('click', function() { startPicking('video'); });
 mixAudioLibraryBtn.addEventListener('click', function() { startPicking('audio'); });
 
-// Intercept all library clicks when mix panel is open
 videoList.addEventListener('click', function(e) {
     if (mixPanel.style.display !== 'block') return;
     var li = e.target.closest('li');
@@ -133,31 +136,40 @@ mixAudioFile.addEventListener('change', async function() {
     if (!f) return;
     mixAudioFile.value = '';
     mixAudioLabel.textContent = 'Loading...';
-    // Upload to server so export works
     var form = new FormData();
     form.append('file', f);
     var resp = await fetch('/api/upload', { method: 'POST', body: form });
     var data = await resp.json();
     if (data.error) { mixAudioLabel.textContent = 'Upload failed'; return; }
-    // Use blob URL for instant playback
-    if (mixAudioObjectURL) URL.revokeObjectURL(mixAudioObjectURL);
-    mixAudioObjectURL = URL.createObjectURL(f);
-    mixAudioEl.src = mixAudioObjectURL;
     mixAudioName = data.filename;
-    mixAudioLabel.textContent = data.filename;
-    tryShowMixControls();
+    try {
+        var buf = await f.arrayBuffer();
+        _mixCtx = _mixCtx || new (window.AudioContext || window.webkitAudioContext)();
+        mixAudioBuffer = await _mixCtx.decodeAudioData(buf);
+        mixAudioLabel.textContent = data.filename;
+        tryShowMixControls();
+    } catch(e) {
+        mixAudioLabel.textContent = 'Could not decode audio';
+    }
 });
 
 async function loadMixAudioFromLibrary(name) {
     mixAudioLabel.textContent = 'Loading audio...';
-    mixAudioEl.src = '/api/video/' + encodeURIComponent(name);
-    mixAudioName = name;
-    mixAudioLabel.textContent = name;
-    tryShowMixControls();
+    try {
+        var resp = await fetch('/api/video/' + encodeURIComponent(name));
+        var buf = await resp.arrayBuffer();
+        _mixCtx = _mixCtx || new (window.AudioContext || window.webkitAudioContext)();
+        mixAudioBuffer = await _mixCtx.decodeAudioData(buf);
+        mixAudioName = name;
+        mixAudioLabel.textContent = name;
+        tryShowMixControls();
+    } catch(e) {
+        mixAudioLabel.textContent = 'Could not decode audio';
+    }
 }
 
 function tryShowMixControls() {
-    if (mixVideoName && mixAudioName) {
+    if (mixVideoName && mixAudioBuffer) {
         var v = getActiveVideo();
         if (!v.duration || isNaN(v.duration)) {
             v.addEventListener('loadedmetadata', function() {
@@ -173,14 +185,12 @@ function tryShowMixControls() {
 
 function updateMixOffsetRange() {
     var durV = getActiveVideo().duration || 0;
-    var durA = mixAudioEl.duration || 0;
-    if (isNaN(durA) || !isFinite(durA)) durA = 0;
+    var durA = mixAudioBuffer ? mixAudioBuffer.duration : 0;
     mixOffsetSlider.min = -Math.round(durA);
     mixOffsetSlider.max = Math.round(durV);
     mixOffsetSlider.value = mixOffset;
     mixOffsetVal.textContent = mixOffset.toFixed(2) + 's';
 }
-mixAudioEl.addEventListener('loadedmetadata', function() { updateMixOffsetRange(); });
 
 // --- Volume & offset ---
 mixVideoVol.addEventListener('input', function() {
@@ -191,7 +201,7 @@ mixVideoVol.addEventListener('input', function() {
 mixAudioVol.addEventListener('input', function() {
     mixAudioVolume = parseFloat(this.value);
     mixAudioVolVal.textContent = Math.round(mixAudioVolume * 100) + '%';
-    mixAudioEl.volume = mixAudioVolume;
+    if (_mixGain) _mixGain.gain.value = mixAudioVolume;
 });
 mixOffsetSlider.addEventListener('input', function() {
     mixOffset = parseFloat(this.value);
@@ -209,106 +219,104 @@ document.getElementById('mixOffsetRightBtn').addEventListener('click', function(
 document.getElementById('mixOffsetFineLeftBtn').addEventListener('click', function() { nudgeMixOffset(-1/30); });
 document.getElementById('mixOffsetFineRightBtn').addEventListener('click', function() { nudgeMixOffset(1/30); });
 
-// --- Sync playback (mirror of Compare mode) ---
-var _mixStarting = false;
-
-function startMixPlayback(v, bt) {
-    v.volume = mixVideoVolume;
-    mixAudioEl.volume = mixAudioVolume;
-    if (bt >= 0 && bt <= (mixAudioEl.duration || Infinity)) {
-        mixAudioEl.currentTime = bt;
-    } else if (bt < 0) {
-        mixAudioEl.currentTime = 0;
-    } else {
-        _mixStarting = true;
-        v.play();
-        setTimeout(function() { _mixStarting = false; }, 50);
-        return;
-    }
-    // Wait for the audio to be buffered so it starts without latency
-    var startBoth = function() {
-        _mixStarting = true;
-        mixAudioEl.play();
-        v.play();
-        setTimeout(function() { _mixStarting = false; }, 50);
-        // One-time correction shortly after to absorb remaining startup latency
-        setTimeout(function() {
-            if (!v.paused && !mixAudioEl.paused) {
-                var target = v.currentTime + mixOffset;
-                if (Math.abs(mixAudioEl.currentTime - target) > 0.1) {
-                    mixAudioEl.currentTime = target;
-                }
-            }
-        }, 500);
-    };
-    if (mixAudioEl.readyState >= 3) {
-        startBoth();
-    } else {
-        mixAudioEl.addEventListener('canplaythrough', startBoth, { once: true });
-    }
+// --- Web Audio overlay ---
+function stopMixSource() {
+    if (_mixSource) { try { _mixSource.stop(); } catch(e) {}; _mixSource = null; }
 }
 
-function syncMixPlayPause() {
-    if (!mixVideoName || !mixAudioName) return;
+async function syncMixPlayPause() {
+    if (!mixVideoName || !mixAudioBuffer) return;
     var v = getActiveVideo();
     if (v.paused) {
-        startMixPlayback(v, v.currentTime + mixOffset);
+        await startMixPlayback(v);
     } else {
         v.pause();
-        mixAudioEl.pause();
+        stopMixSource();
     }
 }
 
-// Hook into player events for sync (mirror of Compare mode)
+async function startMixPlayback(v) {
+    if (!mixAudioBuffer) return;
+    _mixCtx = _mixCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (!_mixGain) { _mixGain = _mixCtx.createGain(); _mixGain.connect(_mixCtx.destination); }
+    _mixGain.gain.value = mixAudioVolume;
+    stopMixSource();
+    // Resume context FIRST, while video stays paused, so no timing skew
+    if (_mixCtx.state === 'suspended') await _mixCtx.resume();
+    if (_mixCtx.state !== 'running') return;
+
+    v.volume = mixVideoVolume;
+    var target = v.currentTime + mixOffset;
+    if (target < 0) target = 0;
+    if (target >= mixAudioBuffer.duration) { v.play(); return; }
+
+    var when = _mixCtx.currentTime + 0.05;
+    var startOffset = target;
+    _mixSource = _mixCtx.createBufferSource();
+    _mixSource.buffer = mixAudioBuffer;
+    _mixSource.connect(_mixGain);
+    _mixSource.start(when, startOffset);
+    // Start video at the same moment; both then run at 1x real-time
+    _mixStarting = true;
+    v.play();
+    setTimeout(function() { _mixStarting = false; }, 100);
+
+    // One-time correction: snap audio to video after startup latency
+    setTimeout(function() {
+        if (v.paused || !_mixSource || !_mixCtx) return;
+        var expected = startOffset + (_mixCtx.currentTime - when);
+        var desired = v.currentTime + mixOffset;
+        if (desired < 0) desired = 0;
+        if (desired > mixAudioBuffer.duration) return;
+        if (Math.abs(expected - desired) > 0.04) {
+            stopMixSource();
+            var src = _mixCtx.createBufferSource();
+            src.buffer = mixAudioBuffer;
+            src.connect(_mixGain);
+            src.start(_mixCtx.currentTime, desired);
+            _mixSource = src;
+        }
+    }, 400);
+}
+
+// Event hooks (video click / keyboard start the video directly)
 videoPlayer.addEventListener('play', function() {
-    if (mixControls.style.display === 'block' && mixAudioName && !_mixStarting) {
-        startMixPlayback(getActiveVideo(), getActiveVideo().currentTime + mixOffset);
+    if (mixControls.style.display === 'block' && mixAudioBuffer && !_mixStarting) {
+        startMixPlayback(getActiveVideo());
     }
 });
 videoPlayer.addEventListener('pause', function() {
-    if (mixControls.style.display === 'block') mixAudioEl.pause();
+    if (mixControls.style.display === 'block') stopMixSource();
 });
 videoPlayer.addEventListener('seeked', function() {
-    if (mixControls.style.display === 'block' && mixAudioName && !getActiveVideo().paused) {
-        var v = getActiveVideo();
-        var bt = v.currentTime + mixOffset;
-        if (bt >= 0 && bt <= (mixAudioEl.duration || Infinity)) {
-            mixAudioEl.currentTime = bt;
-        } else if (bt < 0) {
-            mixAudioEl.currentTime = 0;
-        }
+    if (mixControls.style.display === 'block' && mixAudioBuffer && !getActiveVideo().paused) {
+        startMixPlayback(getActiveVideo());
     }
 });
 cutVideo.addEventListener('play', function() {
-    if (mixControls.style.display === 'block' && mixAudioName) {
-        var v = getActiveVideo();
-        var bt = v.currentTime + mixOffset;
-        if (bt >= 0 && bt <= (mixAudioEl.duration || Infinity)) {
-            mixAudioEl.currentTime = bt;
-            mixAudioEl.play();
-        }
+    if (mixControls.style.display === 'block' && mixAudioBuffer && !_mixStarting) {
+        startMixPlayback(getActiveVideo());
     }
 });
 cutVideo.addEventListener('pause', function() {
-    if (mixControls.style.display === 'block') mixAudioEl.pause();
+    if (mixControls.style.display === 'block') stopMixSource();
 });
 
-// Loop back to start on end
 videoPlayer.addEventListener('ended', function() {
     if (mixControls.style.display !== 'block' || !isLooping) return;
     var v = getActiveVideo();
+    stopMixSource();
     v.currentTime = 0;
-    mixAudioEl.currentTime = Math.max(0, Math.min(mixOffset, mixAudioEl.duration || Infinity));
     v.play();
 });
 
 // --- Auto-sync (same algorithm as Compare mode) ---
 mixAutoSyncBtn.addEventListener('click', async function() {
-    if (!mixAudioName || !mixVideoName) return;
+    if (!mixAudioBuffer || !mixVideoName) return;
     var v = getActiveVideo();
     if (!v.duration || isNaN(v.duration)) { mixSyncStatus.textContent = 'Wait for video to load first.'; return; }
     v.pause();
-    mixAudioEl.pause();
+    stopMixSource();
     mixSyncStatus.textContent = 'Analyzing...';
     mixAutoSyncBtn.disabled = true;
 
@@ -318,10 +326,7 @@ mixAutoSyncBtn.addEventListener('click', async function() {
         var roughV = await extractWaveform(vidSrc, durV, 200, 5);
         if (!roughV) throw new Error('Could not read video audio');
 
-        var audioSrc = mixAudioObjectURL || '/api/video/' + encodeURIComponent(mixAudioName);
-        var roughA = await extractWaveform(audioSrc, durV + Math.abs(mixOffset) + 60, 200, 5);
-        if (!roughA) throw new Error('Could not read audio track');
-
+        var roughA = extractWaveformFromBuffer(mixAudioBuffer, 200, 5);
         var onsetV = trimLeadingSilence(roughV);
         var onsetA = trimLeadingSilence(roughA);
 
@@ -331,7 +336,7 @@ mixAutoSyncBtn.addEventListener('click', async function() {
 
         mixSyncStatus.textContent = 'Fine-tuning...';
         var fineV = await extractWaveform(vidSrc, durV, 1000, 2);
-        var fineA = await extractWaveform(audioSrc, durV + Math.abs(mixOffset) + 60, 1000, 2);
+        var fineA = extractWaveformFromBuffer(mixAudioBuffer, 1000, 2);
         trimLeadingSilenceAt(fineV, onsetV);
         trimLeadingSilenceAt(fineA, onsetA);
         var onsetCorrection = onsetA - onsetV;
