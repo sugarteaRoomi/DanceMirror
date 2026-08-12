@@ -210,25 +210,49 @@ document.getElementById('mixOffsetFineLeftBtn').addEventListener('click', functi
 document.getElementById('mixOffsetFineRightBtn').addEventListener('click', function() { nudgeMixOffset(1/30); });
 
 // --- Sync playback (mirror of Compare mode) ---
+var _mixStarting = false;
+
+function startMixPlayback(v, bt) {
+    v.volume = mixVideoVolume;
+    mixAudioEl.volume = mixAudioVolume;
+    if (bt >= 0 && bt <= (mixAudioEl.duration || Infinity)) {
+        mixAudioEl.currentTime = bt;
+    } else if (bt < 0) {
+        mixAudioEl.currentTime = 0;
+    } else {
+        _mixStarting = true;
+        v.play();
+        setTimeout(function() { _mixStarting = false; }, 50);
+        return;
+    }
+    // Wait for the audio to be buffered so it starts without latency
+    var startBoth = function() {
+        _mixStarting = true;
+        mixAudioEl.play();
+        v.play();
+        setTimeout(function() { _mixStarting = false; }, 50);
+        // One-time correction shortly after to absorb remaining startup latency
+        setTimeout(function() {
+            if (!v.paused && !mixAudioEl.paused) {
+                var target = v.currentTime + mixOffset;
+                if (Math.abs(mixAudioEl.currentTime - target) > 0.1) {
+                    mixAudioEl.currentTime = target;
+                }
+            }
+        }, 500);
+    };
+    if (mixAudioEl.readyState >= 3) {
+        startBoth();
+    } else {
+        mixAudioEl.addEventListener('canplaythrough', startBoth, { once: true });
+    }
+}
+
 function syncMixPlayPause() {
     if (!mixVideoName || !mixAudioName) return;
     var v = getActiveVideo();
     if (v.paused) {
-        v.volume = mixVideoVolume;
-        mixAudioEl.volume = mixAudioVolume;
-        var bt = v.currentTime + mixOffset;
-        if (bt >= 0 && bt <= (mixAudioEl.duration || Infinity)) {
-            // Position audio first, then start both so startup is tight
-            mixAudioEl.currentTime = bt;
-            mixAudioEl.play();
-            v.play();
-        } else if (bt < 0) {
-            mixAudioEl.currentTime = 0;
-            mixAudioEl.play();
-            v.play();
-        } else {
-            v.play();
-        }
+        startMixPlayback(v, v.currentTime + mixOffset);
     } else {
         v.pause();
         mixAudioEl.pause();
@@ -237,16 +261,8 @@ function syncMixPlayPause() {
 
 // Hook into player events for sync (mirror of Compare mode)
 videoPlayer.addEventListener('play', function() {
-    if (mixControls.style.display === 'block' && mixAudioName) {
-        var v = getActiveVideo();
-        var bt = v.currentTime + mixOffset;
-        if (bt >= 0 && bt <= (mixAudioEl.duration || Infinity)) {
-            mixAudioEl.currentTime = bt;
-            mixAudioEl.play();
-        } else if (bt < 0) {
-            mixAudioEl.currentTime = 0;
-            mixAudioEl.play();
-        }
+    if (mixControls.style.display === 'block' && mixAudioName && !_mixStarting) {
+        startMixPlayback(getActiveVideo(), getActiveVideo().currentTime + mixOffset);
     }
 });
 videoPlayer.addEventListener('pause', function() {
