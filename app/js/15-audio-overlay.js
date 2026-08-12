@@ -42,7 +42,8 @@ createMixBtn.addEventListener('click', function() {
 mixCloseBtn.addEventListener('click', closeMixPanel);
 
 function closeMixPanel() {
-    syncPause();
+    getActiveVideo().pause();
+    mixAudioEl.pause();
     if (mixAudioObjectURL) { URL.revokeObjectURL(mixAudioObjectURL); mixAudioObjectURL = null; }
     mixAudioEl.removeAttribute('src');
     mixAudioEl.load();
@@ -228,30 +229,10 @@ function syncMixPlayPause() {
         } else {
             v.play();
         }
-        startMixSyncLoop();
     } else {
         v.pause();
         mixAudioEl.pause();
-        _mixSyncLoop = false;
     }
-}
-
-// Drift-correction loop — keeps audio element locked to video position
-var _mixSyncLoop = false;
-function startMixSyncLoop() {
-    if (_mixSyncLoop) return;
-    _mixSyncLoop = true;
-    var v = getActiveVideo();
-    function tick() {
-        if (!_mixSyncLoop || mixControls.style.display !== 'block' || v.paused) { _mixSyncLoop = false; return; }
-        var bt = v.currentTime + mixOffset;
-        var cur = mixAudioEl.currentTime;
-        if (Math.abs(cur - bt) > 0.06 && !mixAudioEl.paused) {
-            mixAudioEl.currentTime = bt;
-        }
-        requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
 }
 
 // Hook into player events for sync (mirror of Compare mode)
@@ -266,7 +247,6 @@ videoPlayer.addEventListener('play', function() {
             mixAudioEl.currentTime = 0;
             mixAudioEl.play();
         }
-        startMixSyncLoop();
     }
 });
 videoPlayer.addEventListener('pause', function() {
@@ -311,7 +291,8 @@ mixAutoSyncBtn.addEventListener('click', async function() {
     if (!mixAudioName || !mixVideoName) return;
     var v = getActiveVideo();
     if (!v.duration || isNaN(v.duration)) { mixSyncStatus.textContent = 'Wait for video to load first.'; return; }
-    syncPause();
+    v.pause();
+    mixAudioEl.pause();
     mixSyncStatus.textContent = 'Analyzing...';
     mixAutoSyncBtn.disabled = true;
 
