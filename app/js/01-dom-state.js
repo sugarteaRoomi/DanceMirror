@@ -36,6 +36,7 @@ const loopEndBtn = document.getElementById('loopEndBtn');
 const loopPlayBtn = document.getElementById('loopPlayBtn');
 const loopTimes = document.getElementById('loopTimes');
 const loopEmpty = document.getElementById('loopEmpty');
+const loopDelayInput = document.getElementById('loopDelayInput');
 
 // ============================================================
 // State
@@ -52,6 +53,7 @@ let markers = {}; // key (string) → time (seconds)
 let shouldScrollToPlayer = false; // scroll once after folder pick
 let loopEndTime = null; // seconds
 let isLoopPlaying = false;
+let loopDelay = 0; // seconds of break between practice loop reps
 
 // ============================================================
 // Folder-based Video Library

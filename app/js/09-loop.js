@@ -3,8 +3,6 @@
 // ============================================================
 loopBtn.addEventListener('click', function() {
     isLooping = !isLooping;
-    
-    if (videoBLoaded) 
     if (isLooping) {
         this.innerHTML = '&#x1f501; Loop: On';
         this.classList.add('active');
@@ -15,10 +13,19 @@ loopBtn.addEventListener('click', function() {
 });
 loopBtn.classList.add('active');
 
-// Practice Loop
 // ============================================================
-// Practice Loop
+// Practice Loop — section loop with optional break between reps
 // ============================================================
+var _loopDelayTimer = null;
+var _loopDelayCountdown = null;
+var _loopDelayActive = false;
+
+function clearLoopDelay() {
+    _loopDelayActive = false;
+    if (_loopDelayTimer) { clearTimeout(_loopDelayTimer); _loopDelayTimer = null; }
+    if (_loopDelayCountdown) { clearInterval(_loopDelayCountdown); _loopDelayCountdown = null; }
+}
+
 function updateLoopDisplay() {
     if (loopStartTime !== null && loopEndTime !== null) {
         loopEmpty.style.display = 'none';
@@ -52,7 +59,7 @@ function saveLoopTimes() {
     if (!currentVideo) return;
     try {
         localStorage.setItem('mirror-loop-' + currentVideo.name, JSON.stringify({
-            start: loopStartTime, end: loopEndTime
+            start: loopStartTime, end: loopEndTime, delay: loopDelay
         }));
     } catch(e) {}
 }
@@ -78,14 +85,64 @@ loopEndBtn.addEventListener('click', function() {
 loopPlayBtn.addEventListener('click', function() {
     if (loopStartTime === null || loopEndTime === null) return;
     isLoopPlaying = !isLoopPlaying;
+    clearLoopDelay();
     updateLoopPlayBtn();
     updateLoopDisplay();
     if (isLoopPlaying) {
         var v = getActiveVideo();
-        var target = loopStartTime;
-        if (v && v.currentTime < target) {
-            v.currentTime = target;
+        if (!v || isNaN(v.currentTime)) return;
+        if (v.currentTime < loopStartTime || v.currentTime >= loopEndTime) {
+            v.currentTime = loopStartTime;
         }
-        startLoopRAF();
+        v.play();
     }
 });
+
+loopDelayInput.addEventListener('input', function() {
+    var val = parseFloat(this.value);
+    loopDelay = (isNaN(val) || val < 0) ? 0 : val;
+});
+loopDelayInput.addEventListener('change', function() {
+    var val = parseFloat(this.value);
+    if (isNaN(val) || val < 0) val = 0;
+    loopDelay = val;
+    this.value = val;
+    saveLoopTimes();
+});
+
+// Section loop: when we hit the end, restart immediately or pause for a break.
+videoPlayer.addEventListener('timeupdate', function() {
+    if (!isLoopPlaying || _loopDelayActive) return;
+    if (loopStartTime === null || loopEndTime === null) return;
+    if (videoPlayer.currentTime >= loopEndTime) {
+        if (loopDelay > 0) {
+            startLoopDelay();
+        } else {
+            videoPlayer.currentTime = loopStartTime;
+        }
+    }
+});
+
+function startLoopDelay() {
+    _loopDelayActive = true;
+    videoPlayer.pause();
+    var remaining = Math.ceil(loopDelay);
+    loopPlayBtn.textContent = 'Break: ' + remaining + 's';
+    _loopDelayCountdown = setInterval(function() {
+        remaining--;
+        if (remaining <= 0) {
+            clearInterval(_loopDelayCountdown);
+            _loopDelayCountdown = null;
+        } else {
+            loopPlayBtn.textContent = 'Break: ' + remaining + 's';
+        }
+    }, 1000);
+    _loopDelayTimer = setTimeout(function() {
+        _loopDelayTimer = null;
+        _loopDelayActive = false;
+        if (!isLoopPlaying) { updateLoopPlayBtn(); return; }
+        updateLoopPlayBtn();
+        videoPlayer.currentTime = loopStartTime;
+        videoPlayer.play();
+    }, loopDelay * 1000);
+}

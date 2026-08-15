@@ -78,7 +78,10 @@ resetLoopBtn.addEventListener('click', function() {
     if (!currentVideo) return;
     loopStartTime = null;
     loopEndTime = null;
+    loopDelay = 0;
     isLoopPlaying = false;
+    if (loopDelayInput) loopDelayInput.value = 0;
+    if (typeof clearLoopDelay === 'function') clearLoopDelay();
     try { localStorage.removeItem('mirror-loop-' + currentVideo.name); } catch(e) {}
     updateLoopDisplay();
     updateLoopPlayBtn();

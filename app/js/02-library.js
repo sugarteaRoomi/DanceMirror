@@ -68,9 +68,12 @@ function loadVideoState(filename) {
         var loopSaved = JSON.parse(localStorage.getItem('mirror-loop-' + filename));
         if (loopSaved && typeof loopSaved === 'object') {
             loopStartTime = loopSaved.start; loopEndTime = loopSaved.end;
-        } else { loopStartTime = null; loopEndTime = null; }
-    } catch(e) { loopStartTime = null; loopEndTime = null; }
+            loopDelay = (typeof loopSaved.delay === 'number' && loopSaved.delay >= 0) ? loopSaved.delay : 0;
+        } else { loopStartTime = null; loopEndTime = null; loopDelay = 0; }
+    } catch(e) { loopStartTime = null; loopEndTime = null; loopDelay = 0; }
     isLoopPlaying = false;
+    if (loopDelayInput) loopDelayInput.value = loopDelay;
+    if (typeof clearLoopDelay === 'function') clearLoopDelay();
     updateLoopDisplay();
     updateLoopPlayBtn();
 }

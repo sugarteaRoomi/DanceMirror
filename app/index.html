@@ -235,6 +235,11 @@
                     <button class="btn btn-outline btn-sm" id="loopEndBtn" title="Set loop end (.)">End</button>
                     <button class="btn btn-outline btn-sm" id="loopPlayBtn" style="min-width:88px;" title="Toggle practice loop (/)">Play Loop</button>
                 </div>
+                <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+                    <span style="font-size:0.78rem;color:var(--text-muted);">Break between loops:</span>
+                    <input type="number" id="loopDelayInput" min="0" max="300" step="1" value="0" style="width:56px;">
+                    <span style="font-size:0.78rem;color:var(--text-muted);">sec</span>
+                </div>
             </div>
         </div>
     </div>
