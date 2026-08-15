@@ -19,11 +19,17 @@ loopBtn.classList.add('active');
 var _loopDelayTimer = null;
 var _loopDelayCountdown = null;
 var _loopDelayActive = false;
+var _loopRAF = null;
+
+function stopLoopRAF() {
+    if (_loopRAF) { cancelAnimationFrame(_loopRAF); _loopRAF = null; }
+}
 
 function clearLoopDelay() {
     _loopDelayActive = false;
     if (_loopDelayTimer) { clearTimeout(_loopDelayTimer); _loopDelayTimer = null; }
     if (_loopDelayCountdown) { clearInterval(_loopDelayCountdown); _loopDelayCountdown = null; }
+    stopLoopRAF();
 }
 
 function updateLoopDisplay() {
@@ -95,6 +101,7 @@ loopPlayBtn.addEventListener('click', function() {
             v.currentTime = loopStartTime;
         }
         v.play();
+        startLoopRAF();
     }
 });
 
@@ -122,21 +129,29 @@ loopDelayUpBtn.addEventListener('click', function() {
     saveLoopTimes();
 });
 
-// Section loop: when we hit the end, restart immediately or pause for a break.
-videoPlayer.addEventListener('timeupdate', function() {
+// Section loop: check the playhead every frame so the cut point is frame-accurate.
+function loopTick() {
+    _loopRAF = null;
     if (!isLoopPlaying || _loopDelayActive) return;
     if (loopStartTime === null || loopEndTime === null) return;
     if (videoPlayer.currentTime >= loopEndTime) {
         if (loopDelay > 0) {
             startLoopDelay();
-        } else {
-            videoPlayer.currentTime = loopStartTime;
+            return;
         }
+        videoPlayer.currentTime = loopStartTime;
     }
-});
+    _loopRAF = requestAnimationFrame(loopTick);
+}
+
+function startLoopRAF() {
+    stopLoopRAF();
+    _loopRAF = requestAnimationFrame(loopTick);
+}
 
 function startLoopDelay() {
     _loopDelayActive = true;
+    stopLoopRAF();
     videoPlayer.pause();
     var remaining = Math.ceil(loopDelay);
     loopPlayBtn.textContent = 'Break: ' + remaining + 's';
@@ -156,5 +171,6 @@ function startLoopDelay() {
         updateLoopPlayBtn();
         videoPlayer.currentTime = loopStartTime;
         videoPlayer.play();
+        startLoopRAF();
     }, loopDelay * 1000);
 }
