@@ -37,6 +37,8 @@ const loopPlayBtn = document.getElementById('loopPlayBtn');
 const loopTimes = document.getElementById('loopTimes');
 const loopEmpty = document.getElementById('loopEmpty');
 const loopDelayInput = document.getElementById('loopDelayInput');
+const loopDelayDownBtn = document.getElementById('loopDelayDownBtn');
+const loopDelayUpBtn = document.getElementById('loopDelayUpBtn');
 
 // ============================================================
 // State

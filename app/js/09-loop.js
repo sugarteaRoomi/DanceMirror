@@ -109,6 +109,18 @@ loopDelayInput.addEventListener('change', function() {
     this.value = val;
     saveLoopTimes();
 });
+loopDelayInput.addEventListener('focus', function() { this.select(); });
+
+loopDelayDownBtn.addEventListener('click', function() {
+    loopDelay = Math.max(0, Math.round(loopDelay) - 1);
+    loopDelayInput.value = loopDelay;
+    saveLoopTimes();
+});
+loopDelayUpBtn.addEventListener('click', function() {
+    loopDelay = Math.min(300, Math.round(loopDelay) + 1);
+    loopDelayInput.value = loopDelay;
+    saveLoopTimes();
+});
 
 // Section loop: when we hit the end, restart immediately or pause for a break.
 videoPlayer.addEventListener('timeupdate', function() {
