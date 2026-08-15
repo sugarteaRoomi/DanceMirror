@@ -123,17 +123,21 @@ cutSetEndBtn.addEventListener('click', function() {
 
 var CUT_COARSE = 1;
 var CUT_FINE = 1 / 30;
-function nudgeCutStart(dir, step) {
+function _cutDuration() {
+    var dur = videoPlayer.duration;
+    return (isNaN(dur) || !isFinite(dur) || dur <= 0) ? Infinity : dur;
+}
+function nudgeCutStart(delta) {
     if (cutStart === null) return;
-    var dur = videoPlayer.duration || 0;
-    cutStart = Math.max(0, Math.min(dur, cutStart + dir * step));
+    var dur = _cutDuration();
+    cutStart = Math.max(0, Math.min(dur, cutStart + delta));
     if (cutEnd !== null && cutEnd <= cutStart) cutEnd = null;
     updateCutDisplay();
 }
-function nudgeCutEnd(dir, step) {
+function nudgeCutEnd(delta) {
     if (cutEnd === null) return;
-    var dur = videoPlayer.duration || 0;
-    cutEnd = Math.max(0, Math.min(dur, cutEnd + dir * step));
+    var dur = _cutDuration();
+    cutEnd = Math.max(0, Math.min(dur, cutEnd + delta));
     if (cutStart !== null && cutStart >= cutEnd) cutStart = null;
     updateCutDisplay();
 }
