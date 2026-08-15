@@ -199,7 +199,6 @@ function syncSeek(time) {
             if (done < 2) return;
             _syncing = false;
             syncV.play();
-            if (isLoopPlaying) startLoopRAF();
             if (canPlayB) {
                 videoPlayerB.play();
             } else if (bt < 0) {
