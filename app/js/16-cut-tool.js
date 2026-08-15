@@ -34,6 +34,7 @@ cutBtn.addEventListener('click', function() {
     if (typeof createMixBtn !== 'undefined') createMixBtn.disabled = true;
     cutPanel.style.display = 'block';
     cutBtn.style.display = 'none';
+    setPracticePanels(false);
 });
 cutCloseBtn.addEventListener('click', closeCutPanel);
 
@@ -42,6 +43,7 @@ function closeCutPanel() {
     if (typeof createMixBtn !== 'undefined') createMixBtn.disabled = false;
     cutPanel.style.display = 'none';
     cutBtn.style.display = '';
+    setPracticePanels(true);
     cutVideoName = null;
     cutStart = null;
     cutEnd = null;

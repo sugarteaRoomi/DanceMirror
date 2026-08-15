@@ -46,6 +46,7 @@ createMixBtn.addEventListener('click', function() {
     if (typeof cutBtn !== 'undefined') cutBtn.disabled = true;
     mixPanel.style.display = 'block';
     createMixBtn.style.display = 'none';
+    setPracticePanels(false);
 });
 mixCloseBtn.addEventListener('click', closeMixPanel);
 
@@ -60,6 +61,7 @@ function closeMixPanel() {
     if (typeof cutBtn !== 'undefined') cutBtn.disabled = false;
     mixPanel.style.display = 'none';
     createMixBtn.style.display = '';
+    setPracticePanels(true);
     mixVideoName = null;
     mixAudioName = null;
     mixOffset = 0;

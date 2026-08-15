@@ -39,6 +39,13 @@ const loopEmpty = document.getElementById('loopEmpty');
 const loopDelayInput = document.getElementById('loopDelayInput');
 const loopDelayDownBtn = document.getElementById('loopDelayDownBtn');
 const loopDelayUpBtn = document.getElementById('loopDelayUpBtn');
+const keybindPanel = document.getElementById('keybindPanel');
+const loopSection = document.getElementById('loopSection');
+
+function setPracticePanels(show) {
+    keybindPanel.style.display = show ? '' : 'none';
+    loopSection.style.display = show ? '' : 'none';
+}
 
 // ============================================================
 // State
