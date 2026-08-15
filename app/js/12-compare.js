@@ -117,7 +117,7 @@ function scheduleBStart() {
 }
 
 var _syncing = false;
-// Loop: on end, seek back to 0 so B stays synced (listen on both cutVideo and videoPlayer)
+// Loop: on end, seek back to 0 so B stays synced
 function _handleEnded() {
     if (!isLooping) return;
     var syncV = getSyncVideo();
@@ -143,10 +143,9 @@ function _handleEnded() {
     }
 }
 videoPlayer.addEventListener('ended', _handleEnded);
-cutVideo.addEventListener('ended', _handleEnded);
 
 function getSyncVideo() {
-    return isOnCutVideo ? cutVideo : videoPlayer;
+    return videoPlayer;
 }
 
 function syncPlayPause() {
@@ -248,6 +247,7 @@ compareBtn.addEventListener('click', function() {
         updateTargetButtons();
         renderLibrary();
         if (createMixBtn) createMixBtn.disabled = true;
+        if (cutBtn) cutBtn.disabled = true;
         if (currentVideo && !videoBLoaded) {
             var urlB = '/api/video/' + encodeURIComponent(currentVideo.name);
             loadVideoB(urlB, currentVideo.name, currentVideo.size, currentVideoBlob);
@@ -265,6 +265,7 @@ compareBtn.addEventListener('click', function() {
         currentVideoB = null;
         videoBBlob = null;
         if (createMixBtn) createMixBtn.disabled = false;
+        if (cutBtn) cutBtn.disabled = false;
         renderLibrary();
     }
 });

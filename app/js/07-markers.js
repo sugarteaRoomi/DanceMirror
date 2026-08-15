@@ -84,18 +84,6 @@ resetLoopBtn.addEventListener('click', function() {
     updateLoopPlayBtn();
 });
 
-resetCutBtn.addEventListener('click', function() {
-    if (!currentVideo) return;
-    cutStartTime = null;
-    cutEndTime = null;
-    isCutActive = false;
-    if (isOnCutVideo) switchToMain(cutVideo.currentTime);
-    try { localStorage.removeItem('mirror-cut-' + currentVideo.name); } catch(e) {}
-    updateCutDisplay();
-    updateCutPlayBtn();
-    updateLoopDisplay();
-});
-
 addKeybindBtn.addEventListener('click', function() {
     addKeybindBtn.style.display = 'none';
     keybindInputNum.style.display = '';

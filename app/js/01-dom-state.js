@@ -7,7 +7,6 @@ const playerLayout = document.getElementById('playerLayout');
 const fsContainer = document.getElementById('fsContainer');
 const videoWrap = document.getElementById('videoWrap');
 const videoPlayer = document.getElementById('videoPlayer');
-const cutVideo = document.getElementById('cutVideo');
 const videoOverlay = document.getElementById('videoOverlay');
 const playPauseBtn = document.getElementById('playPauseBtn');
 const timeDisplay = document.getElementById('timeDisplay');
@@ -29,7 +28,6 @@ const playerTitle = document.getElementById('playerTitle');
 const keybindList = document.getElementById('keybindList');
 const resetMarkersBtn = document.getElementById('resetMarkersBtn');
 const resetLoopBtn = document.getElementById('resetLoopBtn');
-const resetCutBtn = document.getElementById('resetCutBtn');
 const addKeybindBtn = document.getElementById('addKeybindBtn');
 const keybindInputNum = document.getElementById('keybindInputNum');
 const cancelKeybindBtn = document.getElementById('cancelKeybindBtn');
@@ -38,15 +36,6 @@ const loopEndBtn = document.getElementById('loopEndBtn');
 const loopPlayBtn = document.getElementById('loopPlayBtn');
 const loopTimes = document.getElementById('loopTimes');
 const loopEmpty = document.getElementById('loopEmpty');
-const cutStartBtn = document.getElementById('cutStartBtn');
-const cutEndBtn = document.getElementById('cutEndBtn');
-const cutStartLeft = document.getElementById('cutStartLeft');
-const cutStartRight = document.getElementById('cutStartRight');
-const cutEndLeft = document.getElementById('cutEndLeft');
-const cutEndRight = document.getElementById('cutEndRight');
-const cutPlayBtn = document.getElementById('cutPlayBtn');
-const cutTimes = document.getElementById('cutTimes');
-const cutEmpty = document.getElementById('cutEmpty');
 
 // ============================================================
 // State
@@ -63,9 +52,6 @@ let markers = {}; // key (string) → time (seconds)
 let shouldScrollToPlayer = false; // scroll once after folder pick
 let loopEndTime = null; // seconds
 let isLoopPlaying = false;
-let cutStartTime = null;
-let cutEndTime = null;
-let isCutActive = false;
 
 // ============================================================
 // Folder-based Video Library

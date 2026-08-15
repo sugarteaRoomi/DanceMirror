@@ -70,18 +70,9 @@ function loadVideoState(filename) {
             loopStartTime = loopSaved.start; loopEndTime = loopSaved.end;
         } else { loopStartTime = null; loopEndTime = null; }
     } catch(e) { loopStartTime = null; loopEndTime = null; }
-    try {
-        var cutSaved = JSON.parse(localStorage.getItem('mirror-cut-' + filename));
-        if (cutSaved && typeof cutSaved === 'object') {
-            cutStartTime = cutSaved.start; cutEndTime = cutSaved.end;
-        } else { cutStartTime = null; cutEndTime = null; }
-    } catch(e) { cutStartTime = null; cutEndTime = null; }
     isLoopPlaying = false;
-    isCutActive = false;
     updateLoopDisplay();
     updateLoopPlayBtn();
-    updateCutDisplay();
-    updateCutPlayBtn();
 }
 
 // Click handler for video list
@@ -165,15 +156,10 @@ function uploadFile(file) {
 // Play Video
 // ============================================================
 function playVideo(src, name, size) {
-    isOnCutVideo = false;
-    cutPrepped = false;
-    cutVideo.style.display = 'none';
-    cutVideo.pause();
     videoPlayer.style.opacity = '1';
     videoPlayer.style.pointerEvents = '';
 
     videoPlayer.src = src;
-    cutVideo.src = src;
     playerLayout.classList.add('active');
     playerTitle.textContent = name;
     videoInfo.innerHTML = '';
@@ -185,7 +171,6 @@ function playVideo(src, name, size) {
     }
 
     videoPlayer.load();
-    cutVideo.load();
     renderKeybinds();
 }
 

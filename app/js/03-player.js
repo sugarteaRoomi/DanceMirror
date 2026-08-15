@@ -15,7 +15,7 @@ function formatTimePrecise(seconds) {
 }
 
 function getActiveVideo() {
-    return isOnCutVideo ? cutVideo : videoPlayer;
+    return videoPlayer;
 }
 
 function updateTimeDisplay() {
@@ -52,11 +52,6 @@ videoPlayer.addEventListener('play', updatePlayPauseBtn);
 videoPlayer.addEventListener('pause', updatePlayPauseBtn);
 videoPlayer.addEventListener('loadedmetadata', updatePlayPauseBtn);
 videoPlayer.addEventListener('loadedmetadata', function() { if (isCompareMode && videoBLoaded) updateOffsetSliderRange(); });
-cutVideo.addEventListener('timeupdate', updateTimeDisplay);
-cutVideo.addEventListener('loadedmetadata', updateTimeDisplay);
-cutVideo.addEventListener('play', updatePlayPauseBtn);
-cutVideo.addEventListener('pause', updatePlayPauseBtn);
-cutVideo.addEventListener('loadedmetadata', updatePlayPauseBtn);
 
 playPauseBtn.addEventListener('click', function() {
     if (isCompareMode && videoBLoaded) { syncPlayPause(); return; }
@@ -65,35 +60,10 @@ playPauseBtn.addEventListener('click', function() {
     if (v.paused) v.play(); else v.pause();
 });
 
-// Single entry point for all manual seeks — handles cut zone correctly
+// Single entry point for all manual seeks
 function seekToTime(targetTime) {
-    if (isCutActive && cutStartTime !== null && cutEndTime !== null) {
-        if (targetTime >= cutStartTime && targetTime < cutEndTime) {
-            targetTime = cutEndTime;
-        }
-        if (isOnCutVideo && targetTime < cutStartTime) {
-            switchToMain(targetTime);
-            cutPrepped = false;
-            return;
-        }
-    }
-    if (isOnCutVideo) {
-        switchToMain(targetTime);
-    } else {
-        getActiveVideo().currentTime = targetTime;
-    }
-    cutPrepped = false;
+    getActiveVideo().currentTime = targetTime;
 }
-
-// cutVideo seeked — executes the seamless switch once seek completes
-cutVideo.addEventListener('seeked', function() {
-    if (!cutPrepped || isOnCutVideo || !isCutActive) return;
-    if (cutStartTime === null || cutEndTime === null) return;
-    var ct = videoPlayer.currentTime;
-    if (ct >= cutStartTime && ct < cutEndTime) {
-        switchToCut();
-    }
-});
 
 function seekToPct(pct) {
     var dur = getActiveVideo().duration || 0;
@@ -229,7 +199,6 @@ function _onVideoClick(e) {
     if (v.paused) v.play(); else v.pause();
 }
 videoPlayer.addEventListener('click', _onVideoClick);
-cutVideo.addEventListener('click', _onVideoClick);
 
 // Fullscreen zoom and pan
 var zoomScale = 1;

@@ -163,6 +163,49 @@ def download_export(filename):
         return jsonify({'error': 'Not found'}), 404
     return send_file(path, mimetype='video/mp4', as_attachment=True, download_name=filename)
 
+@app.route('/api/cut', methods=['POST'])
+def cut_video():
+    data = request.json
+    video_name = data.get('video', '')
+    cut_start = float(data.get('start', 0))
+    cut_end = float(data.get('end', 0))
+
+    video_path = os.path.join(VIDEOS_DIR, video_name)
+    if not os.path.exists(video_path):
+        return jsonify({'error': 'Video not found: ' + video_name}), 404
+    if cut_end <= cut_start:
+        return jsonify({'error': 'End must be after start'}), 400
+
+    out_name = 'cut_' + os.path.splitext(video_name)[0] + '.mp4'
+    out_path = os.path.join(VIDEOS_DIR, out_name)
+
+    filter_complex = (
+        '[0:v]trim=end={:.3f},setpts=PTS-STARTPTS[v0];'
+        '[0:v]trim=start={:.3f},setpts=PTS-STARTPTS[v1];'
+        '[0:a]atrim=end={:.3f},asetpts=PTS-STARTPTS[a0];'
+        '[0:a]atrim=start={:.3f},asetpts=PTS-STARTPTS[a1];'
+        '[v0][a0][v1][a1]concat=n=2:v=1:a=1'
+    ).format(cut_start, cut_end, cut_start, cut_end)
+
+    try:
+        subprocess.run([
+            'ffmpeg', '-y',
+            '-i', video_path,
+            '-filter_complex', filter_complex,
+            '-c:v', 'libx264', '-c:a', 'aac',
+            out_path
+        ], check=True, capture_output=True, text=True)
+        return jsonify({'filename': out_name})
+    except subprocess.CalledProcessError as e:
+        return jsonify({'error': 'ffmpeg error: ' + e.stderr[-200:]}), 500
+
+@app.route('/api/cut/<filename>', methods=['GET'])
+def download_cut(filename):
+    path = os.path.join(VIDEOS_DIR, filename)
+    if not os.path.exists(path):
+        return jsonify({'error': 'Not found'}), 404
+    return send_file(path, mimetype='video/mp4', as_attachment=True, download_name=filename)
+
 @app.route('/api/ping')
 def ping():
     global _last_ping

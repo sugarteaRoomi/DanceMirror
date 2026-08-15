@@ -20,37 +20,10 @@ loopBtn.classList.add('active');
 // Practice Loop
 // ============================================================
 function updateLoopDisplay() {
-    function effectiveLoopStart() {
-        if (isCutActive && isLoopPlaying && cutStartTime !== null && cutEndTime !== null) {
-            if (loopStartTime >= cutStartTime && loopStartTime < cutEndTime) {
-                return cutEndTime;
-            }
-        }
-        return loopStartTime;
-    }
-    function effectiveLoopEnd() {
-        if (isCutActive && isLoopPlaying && cutStartTime !== null && cutEndTime !== null) {
-            if (loopEndTime > cutStartTime && loopEndTime <= cutEndTime) {
-                return cutStartTime;
-            }
-        }
-        return loopEndTime;
-    }
-
     if (loopStartTime !== null && loopEndTime !== null) {
         loopEmpty.style.display = 'none';
         loopTimes.style.display = '';
-        var effStart = effectiveLoopStart();
-        var effEnd = effectiveLoopEnd();
-        var startHTML = formatTime(loopStartTime);
-        if (effStart !== loopStartTime) {
-            startHTML = '<s>' + formatTime(loopStartTime) + '</s> ' + formatTime(effStart);
-        }
-        var endHTML = formatTime(loopEndTime);
-        if (effEnd !== loopEndTime) {
-            endHTML = '<s>' + formatTime(loopEndTime) + '</s> ' + formatTime(effEnd);
-        }
-        loopTimes.innerHTML = 'Start: <span>' + startHTML + '</span> &middot; End: <span>' + endHTML + '</span>';
+        loopTimes.innerHTML = 'Start: <span>' + formatTime(loopStartTime) + '</span> &middot; End: <span>' + formatTime(loopEndTime) + '</span>';
     } else if (loopStartTime !== null) {
         loopEmpty.style.display = 'none';
         loopTimes.style.display = '';
@@ -104,21 +77,12 @@ loopEndBtn.addEventListener('click', function() {
 
 loopPlayBtn.addEventListener('click', function() {
     if (loopStartTime === null || loopEndTime === null) return;
-    // Don't allow enabling if loop is fully inside the cut zone
-    if (!isLoopPlaying && isCutActive && cutStartTime !== null && cutEndTime !== null) {
-        if (loopStartTime >= cutStartTime && loopEndTime <= cutEndTime) return;
-    }
     isLoopPlaying = !isLoopPlaying;
     updateLoopPlayBtn();
     updateLoopDisplay();
     if (isLoopPlaying) {
         var v = getActiveVideo();
         var target = loopStartTime;
-        if (isCutActive && cutStartTime !== null && cutEndTime !== null) {
-            if (loopStartTime >= cutStartTime && loopStartTime < cutEndTime) {
-                target = cutEndTime;
-            }
-        }
         if (v && v.currentTime < target) {
             v.currentTime = target;
         }

@@ -41,7 +41,9 @@ createMixBtn.addEventListener('click', function() {
     if (typeof isCompareMode !== 'undefined' && isCompareMode) {
         compareBtn.click();
     }
+    if (typeof closeCutPanel === 'function') closeCutPanel();
     if (typeof compareBtn !== 'undefined') compareBtn.disabled = true;
+    if (typeof cutBtn !== 'undefined') cutBtn.disabled = true;
     mixPanel.style.display = 'block';
     createMixBtn.style.display = 'none';
 });
@@ -55,6 +57,7 @@ function closeMixPanel() {
     mixAudioVideo.load();
     getActiveVideo().volume = 1;
     if (typeof compareBtn !== 'undefined') compareBtn.disabled = false;
+    if (typeof cutBtn !== 'undefined') cutBtn.disabled = false;
     mixPanel.style.display = 'none';
     createMixBtn.style.display = '';
     mixVideoName = null;
