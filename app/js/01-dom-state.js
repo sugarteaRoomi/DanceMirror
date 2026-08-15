@@ -45,6 +45,7 @@ const loopSection = document.getElementById('loopSection');
 function setPracticePanels(show) {
     keybindPanel.style.display = show ? '' : 'none';
     loopSection.style.display = show ? '' : 'none';
+    playerLayout.classList.toggle('sidebar-hidden', !show);
 }
 
 // ============================================================
