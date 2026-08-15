@@ -224,31 +224,26 @@ function clearMixWait() {
 }
 
 // Audio starts AFTER the video (negative offset, e.g. cheering intro).
-// Wait until the video's actual clock reaches the start point, then play.
+// Mirrors Compare mode's scheduleBStart exactly (setTimeout, not rAF).
 function scheduleMixAudioStart() {
     clearMixWait();
     var v = getActiveVideo();
-    var startPoint = -mixOffset; // video time when the audio's music should begin
-    if (v.currentTime >= startPoint) {
+    var remaining = -mixOffset - v.currentTime;
+    if (remaining <= 0) {
         mixAudioVideo.currentTime = v.currentTime + mixOffset;
         mixAudioVideo.play();
+        _mixWaiting = false;
         return;
     }
     _mixWaiting = true;
-    // Pre-position the audio so it's buffered and ready to start instantly
-    mixAudioVideo.currentTime = 0;
-
-    function check() {
-        if (!_mixWaiting) return;
-        if (v.paused) { _mixWaiting = false; return; }
-        if (v.currentTime >= startPoint) {
-            _mixWaiting = false;
-            mixAudioVideo.play();
-            return;
-        }
-        requestAnimationFrame(check);
-    }
-    requestAnimationFrame(check);
+    var delayMs = remaining * 1000 / (v.playbackRate || 1);
+    _mixWaitTimer = setTimeout(function() {
+        if (v.paused) { _mixWaiting = false; _mixWaitTimer = null; return; }
+        mixAudioVideo.currentTime = 0;
+        mixAudioVideo.play();
+        _mixWaiting = false;
+        _mixWaitTimer = null;
+    }, delayMs);
 }
 
 function syncMixPlayPause() {
@@ -268,8 +263,10 @@ function syncMixPlayPause() {
             mixAudioVideo.addEventListener('seeked', _playBoth, { once: true });
             setTimeout(_playBoth, 200);
         } else if (bt < 0) {
-            // Video starts before the audio's music — wait, then start audio
+            // Video starts before the audio's music — pre-position audio, wait, then play
             v.play();
+            mixAudioVideo.currentTime = 0;
+            _mixWaiting = true;
             scheduleMixAudioStart();
         } else {
             // Audio already ended
