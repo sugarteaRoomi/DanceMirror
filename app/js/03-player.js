@@ -84,6 +84,15 @@ seekBar.addEventListener('click', function(e) {
         syncSeek(pct * dur);
         return;
     }
+    if (typeof syncMixSeek === 'function' && mixControls && mixControls.style.display === 'block') {
+        var dur = videoPlayer.duration || 0;
+        if (!dur) return;
+        var rect = seekBar.getBoundingClientRect();
+        var pct = (e.clientX - rect.left) / rect.width;
+        pct = Math.max(0, Math.min(1, pct));
+        syncMixSeek(pct * dur);
+        return;
+    }
     var v = getActiveVideo();
     var dur = v.duration || 0;
     if (!dur) return;
@@ -97,6 +106,11 @@ seekInput.addEventListener('input', function() {
     if (isCompareMode && videoBLoaded) {
         var dur = videoPlayer.duration || 0;
         if (dur > 0) syncSeek((parseInt(seekInput.value, 10) / 1000) * dur);
+        return;
+    }
+    if (typeof syncMixSeek === 'function' && mixControls && mixControls.style.display === 'block') {
+        var dur = videoPlayer.duration || 0;
+        if (dur > 0) syncMixSeek((parseInt(seekInput.value, 10) / 1000) * dur);
         return;
     }
     seekToPct(parseInt(seekInput.value, 10) / 1000);
