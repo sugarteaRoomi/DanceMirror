@@ -44,6 +44,65 @@
     <!-- Player layout -->
     <div class="player-layout" id="playerLayout">
         <div class="card player-section-card" id="playerSection">
+        <!-- Create Mix panel -->
+        <div id="mixPanel" style="display:none;padding-top:16px;border-top:1px solid var(--border);margin-top:16px;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+                <h3 style="font-size:0.95rem;margin:0;color:var(--text-muted);">Create Mix</h3>
+                <button class="btn btn-outline btn-sm" id="mixCloseBtn" style="margin-left:auto;">Close</button>
+            </div>
+            <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;">
+                <!-- Video source -->
+                <div style="flex:1;min-width:250px;padding:12px;background:var(--surface2);border-radius:8px;">
+                    <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:6px;font-weight:600;">Video Source</div>
+                    <div id="mixVideoLabel" style="font-size:0.8rem;color:var(--text);margin-bottom:6px;">None selected</div>
+                    <div style="display:flex;gap:6px;">
+                        <button class="btn btn-outline btn-sm" id="mixVideoLibraryBtn">Pick from Library</button>
+                        <button class="btn btn-outline btn-sm" id="mixVideoUploadBtn">Upload</button>
+                    </div>
+                    <input type="file" id="mixVideoFile" accept="video/*" hidden>
+                </div>
+                <!-- Audio source -->
+                <div style="flex:1;min-width:250px;padding:12px;background:var(--surface2);border-radius:8px;">
+                    <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:6px;font-weight:600;">Audio Source</div>
+                    <div id="mixAudioLabel" style="font-size:0.8rem;color:var(--text);margin-bottom:6px;">None selected</div>
+                    <div style="display:flex;gap:6px;">
+                        <button class="btn btn-outline btn-sm" id="mixAudioLibraryBtn">Pick from Library</button>
+                        <button class="btn btn-outline btn-sm" id="mixAudioUploadBtn">Upload</button>
+                    </div>
+                    <input type="file" id="mixAudioFile" accept="audio/*,.mp4,.mov,.webm,.mkv" hidden>
+                </div>
+            </div>
+            <video id="mixAudioVideo" playsinline style="display:none;"></video>
+            <div id="mixControls" style="display:none;">
+                <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+                    <div style="display:flex;align-items:center;gap:4px;">
+                        <span style="font-size:0.75rem;color:var(--text-muted);">Video Vol:</span>
+                        <input type="range" id="mixVideoVol" min="0" max="1.5" step="0.01" value="1" style="width:80px;">
+                        <span id="mixVideoVolVal" style="font-size:0.75rem;color:var(--text);width:36px;">100%</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:4px;">
+                        <span style="font-size:0.75rem;color:var(--text-muted);">Audio Vol:</span>
+                        <input type="range" id="mixAudioVol" min="0" max="1.5" step="0.01" value="1" style="width:80px;">
+                        <span id="mixAudioVolVal" style="font-size:0.75rem;color:var(--text);width:36px;">100%</span>
+                    </div>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+                    <span style="font-size:0.75rem;color:var(--text-muted);">Offset:</span>
+                    <button class="btn btn-outline btn-sm" id="mixOffsetFineLeftBtn" title="-1 frame">&#9664;&#9664;</button>
+                    <button class="btn btn-outline btn-sm" id="mixOffsetLeftBtn" title="-1 sec">&#9664;</button>
+                    <input type="range" id="mixOffsetSlider" min="-600" max="600" step="0.01" value="0" style="width:120px;">
+                    <span id="mixOffsetVal" style="font-size:0.75rem;color:var(--text);width:56px;">0.00s</span>
+                    <button class="btn btn-outline btn-sm" id="mixOffsetRightBtn" title="+1 sec">&#9654;</button>
+                    <button class="btn btn-outline btn-sm" id="mixOffsetFineRightBtn" title="+1 frame">&#9654;&#9654;</button>
+                    <button class="btn btn-outline btn-sm" id="mixAutoSyncBtn" style="margin-left:8px;">Auto Sync</button>
+                    <span id="mixSyncStatus" style="font-size:0.75rem;color:var(--text-muted);"></span>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <button class="btn btn-outline btn-sm" id="mixExportBtn" style="background:var(--accent);color:#fff;border-color:var(--accent);">Export Video</button>
+                    <span id="mixExportProgress" style="display:none;font-size:0.8rem;color:var(--accent);"></span>
+                </div>
+            </div>
+        </div>
             <h2 id="playerTitle">Now Playing</h2>
             <div class="fs-container" id="fsContainer">
                 <div class="video-wrap" id="videoWrap">
@@ -165,65 +224,6 @@
         </div>
     </div>
 
-        <!-- Create Mix panel -->
-        <div id="mixPanel" style="display:none;padding-top:16px;border-top:1px solid var(--border);margin-top:16px;">
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
-                <h3 style="font-size:0.95rem;margin:0;color:var(--text-muted);">Create Mix</h3>
-                <button class="btn btn-outline btn-sm" id="mixCloseBtn" style="margin-left:auto;">Close</button>
-            </div>
-            <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;">
-                <!-- Video source -->
-                <div style="flex:1;min-width:250px;padding:12px;background:var(--surface2);border-radius:8px;">
-                    <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:6px;font-weight:600;">Video Source</div>
-                    <div id="mixVideoLabel" style="font-size:0.8rem;color:var(--text);margin-bottom:6px;">None selected</div>
-                    <div style="display:flex;gap:6px;">
-                        <button class="btn btn-outline btn-sm" id="mixVideoLibraryBtn">Pick from Library</button>
-                        <button class="btn btn-outline btn-sm" id="mixVideoUploadBtn">Upload</button>
-                    </div>
-                    <input type="file" id="mixVideoFile" accept="video/*" hidden>
-                </div>
-                <!-- Audio source -->
-                <div style="flex:1;min-width:250px;padding:12px;background:var(--surface2);border-radius:8px;">
-                    <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:6px;font-weight:600;">Audio Source</div>
-                    <div id="mixAudioLabel" style="font-size:0.8rem;color:var(--text);margin-bottom:6px;">None selected</div>
-                    <div style="display:flex;gap:6px;">
-                        <button class="btn btn-outline btn-sm" id="mixAudioLibraryBtn">Pick from Library</button>
-                        <button class="btn btn-outline btn-sm" id="mixAudioUploadBtn">Upload</button>
-                    </div>
-                    <input type="file" id="mixAudioFile" accept="audio/*,.mp4,.mov,.webm,.mkv" hidden>
-                </div>
-            </div>
-            <video id="mixAudioVideo" playsinline style="display:none;"></video>
-            <div id="mixControls" style="display:none;">
-                <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
-                    <div style="display:flex;align-items:center;gap:4px;">
-                        <span style="font-size:0.75rem;color:var(--text-muted);">Video Vol:</span>
-                        <input type="range" id="mixVideoVol" min="0" max="1.5" step="0.01" value="1" style="width:80px;">
-                        <span id="mixVideoVolVal" style="font-size:0.75rem;color:var(--text);width:36px;">100%</span>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:4px;">
-                        <span style="font-size:0.75rem;color:var(--text-muted);">Audio Vol:</span>
-                        <input type="range" id="mixAudioVol" min="0" max="1.5" step="0.01" value="1" style="width:80px;">
-                        <span id="mixAudioVolVal" style="font-size:0.75rem;color:var(--text);width:36px;">100%</span>
-                    </div>
-                </div>
-                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
-                    <span style="font-size:0.75rem;color:var(--text-muted);">Offset:</span>
-                    <button class="btn btn-outline btn-sm" id="mixOffsetFineLeftBtn" title="-1 frame">&#9664;&#9664;</button>
-                    <button class="btn btn-outline btn-sm" id="mixOffsetLeftBtn" title="-1 sec">&#9664;</button>
-                    <input type="range" id="mixOffsetSlider" min="-600" max="600" step="0.01" value="0" style="width:120px;">
-                    <span id="mixOffsetVal" style="font-size:0.75rem;color:var(--text);width:56px;">0.00s</span>
-                    <button class="btn btn-outline btn-sm" id="mixOffsetRightBtn" title="+1 sec">&#9654;</button>
-                    <button class="btn btn-outline btn-sm" id="mixOffsetFineRightBtn" title="+1 frame">&#9654;&#9654;</button>
-                    <button class="btn btn-outline btn-sm" id="mixAutoSyncBtn" style="margin-left:8px;">Auto Sync</button>
-                    <span id="mixSyncStatus" style="font-size:0.75rem;color:var(--text-muted);"></span>
-                </div>
-                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                    <button class="btn btn-outline btn-sm" id="mixExportBtn" style="background:var(--accent);color:#fff;border-color:var(--accent);">Export Video</button>
-                    <span id="mixExportProgress" style="display:none;font-size:0.8rem;color:var(--accent);"></span>
-                </div>
-            </div>
-        </div>
     </div>
 </div>
 
