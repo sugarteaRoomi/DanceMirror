@@ -37,6 +37,11 @@ var _mixSyncing = false;
 
 // --- Open/Close ---
 createMixBtn.addEventListener('click', function() {
+    // Turn off compare mode if active, then lock it out while mixing
+    if (typeof isCompareMode !== 'undefined' && isCompareMode) {
+        compareBtn.click();
+    }
+    if (typeof compareBtn !== 'undefined') compareBtn.disabled = true;
     mixPanel.style.display = 'block';
     createMixBtn.style.display = 'none';
 });
@@ -49,6 +54,7 @@ function closeMixPanel() {
     mixAudioVideo.removeAttribute('src');
     mixAudioVideo.load();
     getActiveVideo().volume = 1;
+    if (typeof compareBtn !== 'undefined') compareBtn.disabled = false;
     mixPanel.style.display = 'none';
     createMixBtn.style.display = '';
     mixVideoName = null;

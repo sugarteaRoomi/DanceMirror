@@ -247,6 +247,7 @@ compareBtn.addEventListener('click', function() {
         compareTargetLabel.style.display = '';
         updateTargetButtons();
         renderLibrary();
+        if (createMixBtn) createMixBtn.disabled = true;
         if (currentVideo && !videoBLoaded) {
             var urlB = '/api/video/' + encodeURIComponent(currentVideo.name);
             loadVideoB(urlB, currentVideo.name, currentVideo.size, currentVideoBlob);
@@ -263,6 +264,7 @@ compareBtn.addEventListener('click', function() {
         videoBLoaded = false;
         currentVideoB = null;
         videoBBlob = null;
+        if (createMixBtn) createMixBtn.disabled = false;
         renderLibrary();
     }
 });
