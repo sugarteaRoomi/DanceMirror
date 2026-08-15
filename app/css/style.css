@@ -118,6 +118,7 @@ header p {
     color: var(--accent);
 }
 .btn-sm { padding: 6px 14px; font-size: 0.82rem; }
+.loop-btn { padding: 12px 18px; font-size: 0.95rem; }
 .btn-primary-btn {
     background: var(--gradient);
     color: #fff;
