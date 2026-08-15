@@ -210,9 +210,39 @@ document.getElementById('mixOffsetRightBtn').addEventListener('click', function(
 document.getElementById('mixOffsetFineLeftBtn').addEventListener('click', function() { nudgeMixOffset(-1/30); });
 document.getElementById('mixOffsetFineRightBtn').addEventListener('click', function() { nudgeMixOffset(1/30); });
 
-// --- Sync (mirrors Compare mode syncSeek/syncPlayPause) ---
+// --- Sync (mirrors Compare mode syncSeek/syncPlayPause + scheduleBStart) ---
+var _mixWaiting = false;
+var _mixWaitTimer = null;
+
 function mixAudioTarget() {
     return getActiveVideo().currentTime + mixOffset;
+}
+
+function clearMixWait() {
+    _mixWaiting = false;
+    if (_mixWaitTimer) { clearTimeout(_mixWaitTimer); _mixWaitTimer = null; }
+}
+
+// Audio starts AFTER the video (negative offset, e.g. cheering intro).
+// Wait until the video catches up, then start the audio from its beginning.
+function scheduleMixAudioStart() {
+    clearMixWait();
+    var v = getActiveVideo();
+    var remaining = -mixOffset - v.currentTime;
+    if (remaining <= 0) {
+        mixAudioVideo.currentTime = v.currentTime + mixOffset;
+        mixAudioVideo.play();
+        return;
+    }
+    _mixWaiting = true;
+    var delayMs = remaining * 1000 / (v.playbackRate || 1);
+    _mixWaitTimer = setTimeout(function() {
+        if (v.paused) { _mixWaiting = false; _mixWaitTimer = null; return; }
+        mixAudioVideo.currentTime = 0;
+        mixAudioVideo.play();
+        _mixWaiting = false;
+        _mixWaitTimer = null;
+    }, delayMs);
 }
 
 function syncMixPlayPause() {
@@ -221,6 +251,7 @@ function syncMixPlayPause() {
     if (v.paused) {
         v.volume = mixVideoVolume;
         mixAudioVideo.volume = mixAudioVolume;
+        mixAudioVideo.playbackRate = v.playbackRate || 1;
         var bt = mixAudioTarget();
         if (bt >= 0 && bt <= (mixAudioVideo.duration || Infinity)) {
             // Seek audio to position, then play both together (like Compare mode)
@@ -231,15 +262,17 @@ function syncMixPlayPause() {
             mixAudioVideo.addEventListener('seeked', _playBoth, { once: true });
             setTimeout(_playBoth, 200);
         } else if (bt < 0) {
-            mixAudioVideo.currentTime = 0;
+            // Video starts before the audio's music — wait, then start audio
             v.play();
-            mixAudioVideo.play();
+            scheduleMixAudioStart();
         } else {
+            // Audio already ended
             v.play();
         }
     } else {
         v.pause();
         mixAudioVideo.pause();
+        clearMixWait();
     }
 }
 
@@ -248,6 +281,7 @@ function syncMixSeek(time) {
     var v = getActiveVideo();
     var bt = time + mixOffset;
     var wasPlaying = !v.paused;
+    clearMixWait();
     v.pause();
     mixAudioVideo.pause();
     v.currentTime = time;
@@ -261,7 +295,11 @@ function syncMixSeek(time) {
             if (done < 2) return;
             _mixSyncing = false;
             v.play();
-            mixAudioVideo.play();
+            if (bt >= 0 && bt <= (mixAudioVideo.duration || Infinity)) {
+                mixAudioVideo.play();
+            } else if (bt < 0) {
+                scheduleMixAudioStart();
+            }
         }
         v.addEventListener('seeked', onSeeked, { once: true });
         mixAudioVideo.addEventListener('seeked', onSeeked, { once: true });
@@ -287,9 +325,11 @@ videoPlayer.addEventListener('ended', function() {
     if (mixControls.style.display !== 'block' || !isLooping) return;
     var v = getActiveVideo();
     v.currentTime = 0;
-    mixAudioVideo.currentTime = Math.max(0, Math.min(mixOffset, mixAudioVideo.duration || Infinity));
+    mixAudioVideo.currentTime = 0;
     v.play();
-    mixAudioVideo.play();
+    // If audio starts after the video (negative offset), wait for it
+    if (mixOffset < 0) scheduleMixAudioStart();
+    else mixAudioVideo.play();
 });
 
 // --- Auto-sync (same algorithm as Compare mode) ---
