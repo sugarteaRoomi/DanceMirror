@@ -298,27 +298,37 @@ function syncMixSeek(time) {
     clearMixWait();
     v.pause();
     mixAudioVideo.pause();
-    v.currentTime = time;
-    mixAudioVideo.currentTime = Math.max(0, Math.min(bt, mixAudioVideo.duration || Infinity));
 
-    if (wasPlaying) {
-        _mixSyncing = true;
-        var done = 0;
-        function onSeeked() {
-            done++;
-            if (done < 2) return;
-            _mixSyncing = false;
-            v.play();
-            if (bt >= 0 && bt <= (mixAudioVideo.duration || Infinity)) {
-                mixAudioVideo.play();
-            } else if (bt < 0) {
-                scheduleMixAudioStart();
-            }
-        }
-        v.addEventListener('seeked', onSeeked, { once: true });
-        mixAudioVideo.addEventListener('seeked', onSeeked, { once: true });
-        setTimeout(function() { if (done < 2) { _mixSyncing = false; onSeeked(); } }, 300);
+    var aTarget = Math.max(0, Math.min(bt, mixAudioVideo.duration || Infinity));
+    var vNeedSeek = Math.abs(v.currentTime - time) > 0.0005;
+    var aNeedSeek = Math.abs(mixAudioVideo.currentTime - aTarget) > 0.0005;
+    if (vNeedSeek) v.currentTime = time;
+    if (aNeedSeek) mixAudioVideo.currentTime = aTarget;
+
+    if (!wasPlaying) return;
+
+    var need = (vNeedSeek ? 1 : 0) + (aNeedSeek ? 1 : 0);
+    if (need === 0) {
+        v.play();
+        mixAudioVideo.play();
+        return;
     }
+
+    _mixSyncing = true;
+    var done = 0;
+    function onSeeked() {
+        done++;
+        if (done < need) return;
+        _mixSyncing = false;
+        v.play();
+        if (bt >= 0 && bt <= (mixAudioVideo.duration || Infinity)) {
+            mixAudioVideo.play();
+        } else if (bt < 0) {
+            scheduleMixAudioStart();
+        }
+    }
+    if (vNeedSeek) v.addEventListener('seeked', onSeeked, { once: true });
+    if (aNeedSeek) mixAudioVideo.addEventListener('seeked', onSeeked, { once: true });
 }
 
 // Hook player seek bar / keyboard seeks to sync the audio
