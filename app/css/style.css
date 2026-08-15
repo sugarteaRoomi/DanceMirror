@@ -119,6 +119,9 @@ header p {
 }
 .btn-sm { padding: 6px 14px; font-size: 0.82rem; }
 .loop-btn { padding: 12px 18px; font-size: 0.95rem; }
+#loopDelayInput::-webkit-inner-spin-button,
+#loopDelayInput::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+#loopDelayInput { -moz-appearance: textfield; appearance: textfield; }
 .btn-primary-btn {
     background: var(--gradient);
     color: #fff;
