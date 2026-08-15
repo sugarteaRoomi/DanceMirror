@@ -41,11 +41,8 @@
         <ul class="video-list" id="youtubeVideoList" style="margin-top:0;"></ul>
     </div>
 
-    <!-- Player layout -->
-    <div class="player-layout" id="playerLayout">
-        <div class="card player-section-card" id="playerSection">
         <!-- Create Mix panel -->
-        <div id="mixPanel" style="display:none;padding-top:16px;border-top:1px solid var(--border);margin-top:16px;">
+        <div id="mixPanel" class="card" style="display:none;">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
                 <h3 style="font-size:0.95rem;margin:0;color:var(--text-muted);">Create Mix</h3>
                 <button class="btn btn-outline btn-sm" id="mixCloseBtn" style="margin-left:auto;">Close</button>
@@ -103,6 +100,10 @@
                 </div>
             </div>
         </div>
+
+    <!-- Player layout -->
+    <div class="player-layout" id="playerLayout">
+        <div class="card player-section-card" id="playerSection">
             <h2 id="playerTitle">Now Playing</h2>
             <div class="fs-container" id="fsContainer">
                 <div class="video-wrap" id="videoWrap">
