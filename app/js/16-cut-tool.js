@@ -11,6 +11,14 @@ var cutVideoFile = document.getElementById('cutVideoFile');
 var cutControls = document.getElementById('cutControls');
 var cutSetStartBtn = document.getElementById('cutSetStartBtn');
 var cutSetEndBtn = document.getElementById('cutSetEndBtn');
+var cutStartLeft = document.getElementById('cutStartLeft');
+var cutStartFineLeft = document.getElementById('cutStartFineLeft');
+var cutStartFineRight = document.getElementById('cutStartFineRight');
+var cutStartRight = document.getElementById('cutStartRight');
+var cutEndLeft = document.getElementById('cutEndLeft');
+var cutEndFineLeft = document.getElementById('cutEndFineLeft');
+var cutEndFineRight = document.getElementById('cutEndFineRight');
+var cutEndRight = document.getElementById('cutEndRight');
 var cutStartDisplay = document.getElementById('cutStartDisplay');
 var cutEndDisplay = document.getElementById('cutEndDisplay');
 var cutExportBtn = document.getElementById('cutExportBtn');
@@ -112,6 +120,31 @@ cutSetEndBtn.addEventListener('click', function() {
     if (cutStart !== null && cutStart >= cutEnd) cutStart = null;
     updateCutDisplay();
 });
+
+var CUT_COARSE = 1;
+var CUT_FINE = 1 / 30;
+function nudgeCutStart(dir, step) {
+    if (cutStart === null) return;
+    var dur = videoPlayer.duration || 0;
+    cutStart = Math.max(0, Math.min(dur, cutStart + dir * step));
+    if (cutEnd !== null && cutEnd <= cutStart) cutEnd = null;
+    updateCutDisplay();
+}
+function nudgeCutEnd(dir, step) {
+    if (cutEnd === null) return;
+    var dur = videoPlayer.duration || 0;
+    cutEnd = Math.max(0, Math.min(dur, cutEnd + dir * step));
+    if (cutStart !== null && cutStart >= cutEnd) cutStart = null;
+    updateCutDisplay();
+}
+cutStartLeft.addEventListener('click', function() { nudgeCutStart(-CUT_COARSE); });
+cutStartFineLeft.addEventListener('click', function() { nudgeCutStart(-CUT_FINE); });
+cutStartFineRight.addEventListener('click', function() { nudgeCutStart(CUT_FINE); });
+cutStartRight.addEventListener('click', function() { nudgeCutStart(CUT_COARSE); });
+cutEndLeft.addEventListener('click', function() { nudgeCutEnd(-CUT_COARSE); });
+cutEndFineLeft.addEventListener('click', function() { nudgeCutEnd(-CUT_FINE); });
+cutEndFineRight.addEventListener('click', function() { nudgeCutEnd(CUT_FINE); });
+cutEndRight.addEventListener('click', function() { nudgeCutEnd(CUT_COARSE); });
 
 function updateCutDisplay() {
     cutStartDisplay.textContent = 'Start: ' + (cutStart !== null ? formatTimePrecise(cutStart) : '—');
